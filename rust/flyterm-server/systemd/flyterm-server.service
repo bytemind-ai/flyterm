@@ -1,0 +1,15 @@
+[Unit]
+Description=FlyTerm QUIC server (daemon mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%h/.flyterm-server/bin/flyterm-server --listen 9876 --state-dir %h/.flyterm-server
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

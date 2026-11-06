@@ -1,0 +1,99 @@
+# tag 触发的发布流程。
+#
+# **不要用 debug 签名发布。** Android 的 debug keystore 是公开已知的固定
+# 密钥，用它签的包任何人都能伪造「更新」；而且 Android 不允许跨签名密钥
+# 升级，一旦首发用了 debug 签名，想换正式密钥就只能让所有用户卸载重装。
+#
+# 这里用的 OSS 发布密钥与商店密钥是**两把不同的钥匙** —— 商店密钥始终只在
+# 本地，不进 Secrets。
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+  # build-server-assets.sh（Gradle 也会调它）在 aarch64 失败时直接报错，
+  # 不让 ARM 服务端悄悄缺席。
+  FLYTERM_REQUIRE_AARCH64: '1'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99'
+          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # aarch64 服务端靠 cargo-zigbuild 交叉编译。装预编译版，省掉每次
+      # cargo install 的编译时间。
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - name: Restore OSS signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.OSS_KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > android/app/oss-release.keystore
+          cat > android/key.properties <<EOF
+          storeFile=oss-release.keystore
+          storePassword=${{ secrets.OSS_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.OSS_KEY_ALIAS }}
+          keyPassword=${{ secrets.OSS_KEY_PASSWORD }}
+          EOF
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+
+      # 无 dart-define = 全功能解锁（开源构建）。
+      # 不传 -PallowDebugSigning —— 走上面还原出来的正式签名路径。
+      - name: Build release APK
+        run: |
+          flutter build apk --release --split-per-abi \
+            --target-platform android-arm64
+
+      # 这一步的存在意义：debug 签名的包一旦发上 Releases，因为 Android 不
+      # 允许跨签名密钥升级，就只能让所有已安装用户卸载重装。必须发布前拦住。
+      - name: Verify signing identity
+        run: |
+          APK=build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/certs.txt
+          if grep -q "CN=Android Debug" /tmp/certs.txt; then
+            echo "::error::APK is debug-signed — refusing to publish"
+            exit 1
+          fi
+
+      - name: Build flyterm-server binaries
+        run: scripts/build-server-assets.sh --force
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+            assets/flyterm-server/flyterm-server-linux-x86_64*
+            assets/flyterm-server/flyterm-server-linux-aarch64*

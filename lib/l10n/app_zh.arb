@@ -1,0 +1,1727 @@
+{
+  "@@locale": "zh",
+  "appTitle": "FlyTerm",
+  "newConnection": "新建连接",
+  "cancel": "取消",
+  "delete": "删除",
+  "save": "保存",
+  "add": "添加",
+  "edit": "编辑",
+  "sftpViewSource": "查看源码",
+  "sftpViewPreview": "查看渲染",
+  "sftpMarkdownTruncated": "文件较大，仅显示开头部分。",
+  "required": "必填",
+  "confirm": "确定",
+  "importAction": "导入",
+  "noServers": "暂无服务器",
+  "addServer": "添加服务器",
+  "viaJumpHost": "通过跳板机连接",
+  "newSession": "新建会话",
+  "sftpFileBrowser": "SFTP 文件管理",
+  "newTunnel": "新建隧道",
+  "deleteServerTitle": "删除服务器？",
+  "confirmDeleteServer": "确定删除 \"{name}\"？",
+  "sftpConnectFailed": "SFTP 连接失败：{error}",
+  "editServer": "编辑服务器",
+  "newServer": "新建服务器",
+  "labelName": "名称",
+  "labelHost": "主机地址",
+  "labelHostHelper": "支持 IPv4 / IPv6 / 主机名（IPv6 可带可不带方括号）",
+  "labelPort": "端口",
+  "addressFamilyLabel": "地址协议",
+  "addressFamilyAuto": "自动（优先 IPv6）",
+  "addressFamilyIpv4": "强制 IPv4",
+  "addressFamilyIpv6": "强制 IPv6",
+  "invalidPort": "端口无效",
+  "labelUsername": "用户名",
+  "labelStartupCommand": "连接后执行的命令（可选）",
+  "hintStartupCommand": "如：tmux、cd /var/log",
+  "authMethod": "认证方式",
+  "authPassword": "密码",
+  "authSshKey": "SSH 密钥",
+  "labelPassword": "密码",
+  "selectKey": "选择密钥",
+  "keyRequired": "请选择密钥",
+  "addSshKey": "新建密钥",
+  "hostKeyTofuTitle": "首次连接 — 校验主机密钥",
+  "hostKeyTofuBody": "FlyTerm 第一次连接到这台服务器。请与管理员确认指纹一致后再接受。",
+  "hostKeyMismatchTitle": "主机密钥已改变！",
+  "hostKeyMismatchBody": "服务器密钥与已保存的不一致。可能是服务器重装，也可能是中间人攻击。在确认安全前不要继续。",
+  "hostKeyHost": "主机",
+  "hostKeyType": "密钥类型",
+  "hostKeyFingerprint": "指纹（MD5）",
+  "hostKeyExpected": "期望指纹",
+  "hostKeyActual": "实际收到指纹",
+  "hostKeyAccept": "信任并连接",
+  "hostKeyAcceptAnyway": "仍然连接（覆盖保存的密钥）",
+  "hostKeyReject": "取消",
+  "knownHostsTitle": "已信任主机",
+  "knownHostsEntry": "已信任主机",
+  "knownHostsEntrySubtitle": "服务器指纹白名单",
+  "knownHostsEmpty": "尚未信任任何主机。首次连接新服务器时会提示你确认指纹。",
+  "knownHostDelete": "删除",
+  "knownHostDeleteTitle": "忘记此主机？",
+  "sshCompressionTitle": "SSH 压缩",
+  "sshCompressionDesc": "对 SSH 流量启用 zlib — 慢速 / 计费网络下显著省带宽；高速 LAN 上 CPU 开销大于收益时可关闭。",
+  "backgroundKeepAliveTitle": "后台保活",
+  "backgroundKeepAliveDesc": "app 切到后台时保持终端连接不断。代价是通知栏会常驻一条通知 —— Android 强制前台服务显示它，无法隐藏。关闭后切后台会断线，也收不到服务器推来的任务通知。",
+  "notificationPermissionTitle": "通知权限",
+  "notificationPermissionGranted": "通知已允许",
+  "notificationPermissionDenied": "FlyTerm 的通知被系统挡住 —— 任务完成与审批提醒都无法显示",
+  "notificationPermissionChannelDisabled": "「任务通知」频道被关闭 —— 提醒无法显示",
+  "notificationPermissionUnknown": "在这台设备上无法判断通知权限",
+  "notificationPermissionOpenSettings": "打开系统设置",
+  "notificationPermissionRequest": "允许通知",
+  "notifySessionGone": "那个会话已经关闭了",
+  "knownHostDeleteBody": "下次连接 {host} 时 FlyTerm 会重新要求确认指纹。",
+  "tmuxAutoRecover": "tmux 自动会话恢复",
+  "tmuxAutoRecoverDesc": "切网/重连后自动恢复上次终端会话，需服务器已安装 tmux",
+  "transport": "传输协议",
+  "transportRecommended": "推荐",
+  "useTmux": "使用 tmux (进程持久化)",
+  "useTmuxDesc": "仅当远端 server 重启后 PTY 不丢才需要",
+  "useDaemon": "Daemon 模式 (远端常驻)",
+  "useDaemonDesc": "支持跨 SSH 会话恢复；启动失败显式报错，不静默回退",
+  "useMosh": "使用 Mosh",
+  "moshDesc": "通过 UDP 连接，支持漫游，需服务端安装 mosh-server",
+  "moshNotSupportedWithJump": "Mosh 不支持跳板机 — 请改传输协议或取消跳板机",
+  "moshPortRange": "Mosh 端口范围",
+  "moshPortRangeFormat": "格式：起始端口:终止端口",
+  "moshPortMustBeInt": "端口必须为整数",
+  "moshStartBeforeEnd": "起始端口必须小于终止端口",
+  "useJumpHost": "通过跳板机连接",
+  "useJumpHostDesc": "经由另一台服务器跳转到此服务器",
+  "selectJumpServer": "选择跳板服务器",
+  "jumpServerRequired": "请选择跳板服务器",
+  "addJumpServer": "新建跳板服务器",
+  "sectionConnection": "连接",
+  "sectionAccount": "账户",
+  "sectionAppearance": "外观",
+  "sectionInput": "输入",
+  "sectionSecurity": "安全",
+  "sectionAbout": "关于",
+  "appearanceSettingsTitle": "外观设置",
+  "connectionAdvancedTitle": "高级连接选项",
+  "securitySettingsTitle": "安全设置",
+  "aboutTitle": "关于",
+  "keybarCount": "{count} 项",
+  "@keybarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enabled": "已启用",
+  "disabled": "已关闭",
+  "sectionAI": "AI",
+  "sectionData": "数据与隐私",
+  "settings": "设置",
+  "sshKeys": "SSH 密钥",
+  "sshKeysSubtitle": "管理 SSH 密钥对",
+  "aiProviders": "AI 服务商",
+  "aiProvidersSubtitle": "配置 AI API 密钥",
+  "tunnels": "隧道",
+  "tunnelCountBadge": "{count} 隧道",
+  "aiErrorHint": "AI 错误智能提示",
+  "aiErrorHintDesc": "检测到错误时提示 AI 分析",
+  "terminalFontSize": "终端字体大小",
+  "terminalCursorStyle": "光标样式",
+  "terminalCursorStyleDefault": "默认",
+  "terminalCursorStyleVerticalBar": "竖线",
+  "terminalCursorStyleBlock": "块状",
+  "terminalCursorStyleUnderline": "下划线",
+  "dangerousCommandGuard": "危险命令保护",
+  "dangerousCommandGuardDesc": "手动输入 rm -rf、dd 等高风险命令时弹窗确认",
+  "commandCompletionTitle": "命令补全",
+  "commandCompletionSubtitle": "从命令历史与远端 shell 给出候选。本地完成，不需要配置 AI provider。",
+  "noKeys": "暂无密钥",
+  "copyPublicKey": "复制公钥",
+  "addKey": "添加密钥",
+  "publicKeyCopied": "公钥已复制到剪贴板",
+  "deleteKeyTitle": "删除密钥？",
+  "confirmDeleteKey": "确定删除 \"{name}\"？",
+  "generateEd25519": "生成 Ed25519 密钥",
+  "generateRsa4096": "生成 RSA 4096 密钥",
+  "importFromPem": "从 PEM 导入",
+  "keyName": "密钥名称",
+  "keyNameHint": "例如 my-macbook",
+  "pastePem": "粘贴私钥 (PEM 格式)",
+  "noProviders": "暂无 AI 服务商",
+  "setDefault": "设为默认",
+  "addProvider": "添加服务商",
+  "deleteProviderTitle": "删除服务商？",
+  "confirmDeleteProvider": "确定删除 \"{name}\"？",
+  "editProvider": "编辑服务商",
+  "displayName": "显示名称",
+  "providerType": "服务商类型",
+  "model": "模型",
+  "baseUrl": "Base URL（可选）",
+  "apiKey": "API Key",
+  "apiKeyEditHint": "API Key（留空保留原有密钥）",
+  "extrasJson": "扩展参数 (JSON，可选)",
+  "invalidJson": "请输入合法的 JSON 对象",
+  "setAsDefault": "设为默认服务商",
+  "providerSectionIdentity": "IDENTITY",
+  "providerSectionEndpoint": "ENDPOINT",
+  "providerSectionAuth": "AUTH",
+  "providerSectionAdvanced": "ADVANCED",
+  "providerSectionPresets": "PRESETS",
+  "providerModelVolatileHint": "模型名会变动。若接口报模型不存在，到服务商控制台核对当前名称。",
+  "noTunnels": "暂无隧道",
+  "tapPlusToAdd": "点击右下角 + 新建",
+  "reconnect": "重连",
+  "deleteTunnelTitle": "删除隧道？",
+  "confirmDeleteTunnel": "删除 \"{name}\" 及其保存的配置？",
+  "disableAutoConnect": "禁用自动连接",
+  "enableAutoConnect": "启用自动连接",
+  "startTunnel": "启动",
+  "stopTunnel": "停止",
+  "deleteConfig": "删除配置",
+  "tunnelStatusActive": "运行中",
+  "tunnelStatusConnecting": "连接中…",
+  "tunnelStatusReconnecting": "重连中 ({count}/{max})…",
+  "tunnelStatusFailed": "重连失败",
+  "tunnelStatusError": "错误",
+  "tunnelStatusStopped": "已停止",
+  "selectServer": "选择服务器",
+  "tunnelDirLocal": "本地",
+  "tunnelDirRemote": "远程",
+  "tunnelDescLocal": "手机端口 → 服务器端口（访问远程服务）",
+  "tunnelDescRemote": "服务器端口 → 手机端口（暴露本地服务）",
+  "tunnelDescSocks5": "在手机端口启动 SOCKS5 代理（流量经 SSH 转发）",
+  "labelLocalPort": "本地端口（手机）",
+  "invalidTunnelPort": "请输入有效端口（1–65535）",
+  "labelRemoteHost": "远程主机",
+  "labelRemotePort": "远程端口",
+  "labelTunnelLabel": "标签（可选）",
+  "hintTunnelLabel": "例如 MySQL 3306",
+  "autoStartTunnel": "启动时自动连接",
+  "autoStartTunnelDesc": "每次启动应用时自动重连此隧道",
+  "submitOnce": "仅此一次",
+  "submitSaveAndStart": "保存并启动",
+  "tunnelFailed": "失败：{error}",
+  "pleaseSelectServer": "请选择服务器",
+  "errorDetected": "检测到错误，AI 可以帮你分析",
+  "aiAnalyze": "AI 分析",
+  "aiAnalyzeError": "帮我分析终端里的这个错误",
+  "aiAnalyzeErrorChip": "分析错误",
+  "moshFallback": "Mosh 降级为 SSH: {message}",
+  "reconnectInProgress": "重新连接中...",
+  "refreshing": "正在刷新...",
+  "reconnectSuccess": "已重新连接",
+  "reconnectFailedWithError": "重连失败：{error}",
+  "@reconnectFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "reconnectErrTimeout": "连接超时，请检查网络",
+  "reconnectErrRefused": "连接被拒绝",
+  "reconnectErrReset": "连接被重置",
+  "reconnectErrUnreachable": "网络不可达",
+  "reconnectErrDns": "域名解析失败",
+  "reconnectErrAuth": "认证失败",
+  "reconnectErrPermission": "权限被拒绝",
+  "reconnectErrSocket": "网络连接错误",
+  "reconnectRetryCountdown": "{seconds}s 后重试（第 {round} 轮 {attempt}/{total}）...",
+  "reconnectNetworkUnstableRetry": "网络不稳定，30s 后重试",
+  "reconnectCascadeWarning": "{protocol}: {minutes} 分钟内已重连 {count} 次，网络可能不稳定",
+  "reconnectLoopDetected": "{protocol}: 重连循环检测到，已停止自动重连，请手动刷新",
+  "reconnectMoshHandshake": "Mosh 握手中...",
+  "reconnectMoshConnected": "Mosh SSP 连接成功",
+  "reconnectMoshFallback": "Mosh 降级为 SSH",
+  "reconnectMoshFallbackWithReason": "Mosh 降级为 SSH：{reason}",
+  "reconnectMoshDisconnectedRestoring": "Mosh 断线，尝试恢复会话...",
+  "reconnectMoshSessionRestored": "Mosh 会话已恢复",
+  "reconnectMoshRestoreFailedRehandshake": "Mosh 会话无法恢复，重新握手...",
+  "tmuxNotFoundDisabled": "tmux 未找到，已自动关闭",
+  "enterPassword": "输入密码",
+  "split": "分屏",
+  "tabMove": "移动",
+  "splitVertical": "上下分屏",
+  "splitHorizontal": "左右分屏",
+  "closeSplit": "关闭分屏",
+  "floatTerminal": "悬浮终端",
+  "closeFloat": "关闭悬浮",
+  "layoutPickerTitle": "分屏",
+  "layoutSingle": "单屏",
+  "layoutWithCurrent": "分屏 · {state}",
+  "saveFavoriteDialogTitle": "收藏命令",
+  "favoriteCommandNameLabel": "命令名称",
+  "commandSaved": "命令已收藏",
+  "notConnected": "未连接",
+  "back": "返回",
+  "connectingTo": "正在连接 {host}…",
+  "voiceUnavailable": "语音输入暂不可用",
+  "voicePermissionTitle": "开启语音输入",
+  "voiceMicrophonePermissionContent": "语音输入需要麦克风权限。请在系统设置中允许 FlyTerm 使用麦克风。",
+  "voiceSpeechPermissionContent": "iPhone/iPad 上语音输入还需要「语音识别」权限。请在系统设置中允许 FlyTerm 使用语音识别。",
+  "voiceRecognizerUnavailableContent": "麦克风权限已检查，但当前系统语音识别服务不可用或被禁用。请在系统设置中启用语音输入/语音助手，或安装 Google App / 系统语音服务后重试。如果仍然不行，大多数输入法自带麦克风按键——它走的是输入法自己的识别通道，与本应用无关，可以试试那个。",
+  "voiceNoSpeechContent": "未检测到语音。请确认系统麦克风开关已开启、设备有可用麦克风，并检查是否有其他应用正在占用麦克风。",
+  "voiceBusyContent": "语音识别服务正忙。请稍后重试。",
+  "voiceNetworkContent": "语音识别需要网络连接。请检查网络后重试。",
+  "voiceUnknownContent": "语音输入暂时不可用。请检查麦克风权限和系统语音识别服务后重试。",
+  "voiceOpenSettings": "去设置",
+  "voiceRetry": "重新检测",
+  "voiceLater": "稍后",
+  "voiceErrorTitle": "语音输入出错",
+  "voiceErrorHint": "可长按选中下面这段文字复制，发给开发者定位问题：",
+  "voiceCopyDiagnostics": "复制诊断",
+  "voiceDiagnosticsCopied": "已复制",
+  "sftpSaved": "已保存：{name}",
+  "sftpSymlinkTarget": "→ {target}",
+  "@sftpSymlinkTarget": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpSymlinkDangling": "链接目标不存在",
+  "sftpErrPermissionDenied": "权限不足，请检查文件权限。",
+  "sftpErrNotFound": "路径不存在，可能已被移动或删除。",
+  "sftpErrDiskFull": "远端空间不足。",
+  "sftpErrDisconnected": "连接已断开，请重连后重试。",
+  "sftpErrAlreadyExists": "同名文件已存在。",
+  "sftpErrRawDetail": "详细信息",
+  "downloadSavedToPublic": "已保存到 {path}",
+  "open": "打开",
+  "sftpDownloadFailed": "下载失败：{error}",
+  "sftpBatchSelect": "批量选择",
+  "sftpDownloadFolder": "下载文件夹",
+  "sftpDownload": "下载",
+  "sftpOpenWithSystem": "使用其他应用打开",
+  "sftpConfirmLargeOpen": "{name} 大小为 {size}，确定下载并用其他应用打开？",
+  "@sftpConfirmLargeOpen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpOpeningFile": "正在下载 {name}…",
+  "@sftpOpeningFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rename": "重命名",
+  "permissions": "权限",
+  "sftpNewName": "新名称",
+  "sftpConfirmDeleteEntry": "删除 \"{name}\"？",
+  "sftpNewFolderTitle": "新建文件夹",
+  "sftpFolderName": "文件夹名称",
+  "sftpNewFileTitle": "新建文件",
+  "sftpFileName": "文件名称",
+  "sftpJumpToPath": "跳转到路径",
+  "create": "创建",
+  "jump": "跳转",
+  "apply": "应用",
+  "sftpPermissionsTitle": "权限 — {name}",
+  "sftpOwner": "拥有者",
+  "sftpGroup": "群组",
+  "sftpOther": "其他",
+  "sftpRead": "读",
+  "sftpWrite": "写",
+  "sftpExecute": "执",
+  "sftpSelectedCount": "已选 {count} 个",
+  "sftpSelectAll": "全选",
+  "sftpSelectedItems": "{count} 个已选",
+  "sftpScanningFiles": "扫描中... 已发现 {count} 个文件",
+  "sftpUploading": "上传 {filename}",
+  "sftpEmptyDirectory": "空目录",
+  "sftpRenameFailed": "重命名失败：{error}",
+  "sftpDeleteFailed": "删除失败：{error}",
+  "sftpCreateFailed": "创建失败：{error}",
+  "sftpChmodFailed": "修改失败：{error}",
+  "sftpDownloadsCompleted": "已完成 {count} 个下载",
+  "sftpConfirmDeleteSelected": "删除已选的 {count} 个项目？此操作不可撤销。",
+  "sftpCreateFolderAction": "新建目录",
+  "sftpCreateFileAction": "新建文件",
+  "sftpUploadFileAction": "上传文件",
+  "sftpUploadFolderAction": "上传文件夹",
+  "sftpConflictTitle": "有 {count} 个文件已存在",
+  "@sftpConflictTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpConflictBody": "上传会覆盖它们，且无法撤销。",
+  "sftpConflictOverwriteAll": "全部覆盖",
+  "sftpConflictSkipAll": "跳过已存在",
+  "sftpConflictSkipped": "已跳过 {count} 个已存在的文件",
+  "@sftpConflictSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAssistant": "AI 助手",
+  "aiMicUnavailableTitle": "无法使用语音输入",
+  "aiMicUnavailableContent": "麦克风权限未授予或设备不支持语音识别。\n\n请前往手机「设置 → 应用 → FlyTerm → 权限」，开启麦克风权限后重新进入应用。",
+  "aiNoProvider": "未配置 AI 服务商，请前往 设置 → AI 服务商 添加。",
+  "aiEmptyHint": "描述你想执行的操作，AI 会生成命令并让你一键执行。\n\n例如：找出占用内存最多的进程",
+  "aiGoConfig": "去配置 →",
+  "aiListeningHint": "正在聆听…",
+  "aiInputHint": "描述操作或提问…",
+  "aiClearHistory": "清空对话",
+  "aiNewSession": "新建会话",
+  "aiMoreActions": "更多操作",
+  "aiSessionHistory": "历史会话",
+  "aiHistoryEmpty": "还没有归档的会话",
+  "aiHistorySearchHint": "搜标题",
+  "aiHistoryNoMatch": "没有匹配的会话",
+  "aiHistoryQuotaHint": "每台机器保留最近 {keep} 段；标星的不计入。",
+  "aiHistoryEvents": "{count} 条",
+  "aiHistoryUntitled": "(无标题)",
+  "aiHistoryDeleteTitle": "删除这段会话？",
+  "aiHistoryDelete": "删除",
+  "aiCopyAction": "复制",
+  "aiMessageCopied": "已复制",
+  "aiRetryAction": "重试",
+  "aiEditAction": "编辑",
+  "aiExplainAction": "解释",
+  "aiSaveAction": "收藏",
+  "aiRunAction": "执行",
+  "aiCommandFailed": "命令执行失败",
+  "aiOutputLines": "{count} 行",
+  "aiGotIt": "知道了",
+  "favoritesTitle": "收藏命令",
+  "addFavoriteTooltip": "添加收藏",
+  "noFavorites": "暂无收藏命令\n点击右上角 + 添加",
+  "editFavoriteTitle": "编辑收藏命令",
+  "addFavoriteTitle": "添加收藏命令",
+  "favoriteName": "名称",
+  "favoriteNameHint": "如：更新系统",
+  "favoriteCommand": "命令",
+  "favoriteCommandHint": "支持模板变量",
+  "favoriteRun": "执行",
+  "favoriteAiEnabled": "允许 AI 调用",
+  "favoriteAiEnabledHint": "AI 会看到这条命令的名字和模板",
+  "favoriteAiBudget": "{count} 条对 AI 开放，每次请求约 {tokens} token",
+  "favoriteAiOverflow": "{count} 条超出上限，不会提供给 AI",
+  "sftpDownloadDir": "下载目录",
+  "sftpDownloadDirDownloads": "公共下载目录（文件 App 可见）",
+  "sftpDownloadDirDocuments": "文稿文件夹",
+  "sftpDownloadDirCustom": "自定义路径",
+  "sftpCustomPathHint": "例如 /storage/emulated/0/MyFolder",
+  "searchServers": "搜索服务器…",
+  "noSearchResults": "未找到匹配的服务器",
+  "serverGroup": "分组（可选）",
+  "close": "关闭",
+  "terminalTheme": "终端主题",
+  "terminalThemeDefault": "默认深色",
+  "terminalThemeDracula": "Dracula",
+  "terminalThemeSolarizedDark": "Solarized Dark",
+  "terminalThemeMonokai": "Monokai",
+  "terminalThemeSolarizedLight": "Solarized 浅色",
+  "terminalThemeNord": "Nord",
+  "terminalThemeGruvboxDark": "Gruvbox Dark",
+  "terminalThemeOneDark": "One Dark",
+  "terminalThemeTokyoNight": "Tokyo Night",
+  "cursorBlink": "光标闪烁",
+  "cursorBlinkSubtitle": "终端获得焦点时光标闪烁",
+  "selectionColor": "选中文字颜色",
+  "selectionColorSubtitle": "选中文本时的高亮颜色",
+  "keybarCustomize": "KeyBar 自定义",
+  "keybarCustomizeSubtitle": "重排、编辑、新增按键",
+  "fetSettingsTitle": "SFTP 切换按钮",
+  "fetSettingsSubtitle": "切换终端与 SFTP 视图的悬浮按钮",
+  "fetSettingsShow": "显示悬浮按钮",
+  "fetSettingsShowSubtitle": "在终端右侧显示快速切换 SFTP 的悬浮按钮",
+  "fetSettingsAutoHide": "自动隐藏到边缘",
+  "fetSettingsAutoHideSubtitle": "无操作 7 秒后贴边隐藏",
+  "fetSettingsOpacity": "透明度",
+  "fetSettingsResetPosition": "重置位置",
+  "fetSettingsResetPositionSubtitle": "将悬浮按钮恢复到屏幕中央",
+  "fetSettingsResetDone": "已重置悬浮按钮位置",
+  "sftpSwitchToSftp": "切换 SFTP",
+  "sftpSwitchToTerminal": "返回终端",
+  "sftpOnboardingHint": "点击切换 SFTP/终端，拖动可调位置，向右快速甩动可隐藏",
+  "keybarLongPressEdit": "编辑",
+  "keybarLongPressDelete": "删除",
+  "keybarEmptyHint": "长按按键或打开 设置 → KeyBar 自定义 以添加按键",
+  "keybarEditorTitle": "KeyBar 自定义",
+  "keybarEditorAddTooltip": "新建按键",
+  "keybarEditorRestoreDefaults": "恢复默认配置",
+  "keybarEditorConfirmRestoreTitle": "恢复默认 KeyBar？",
+  "keybarEditorConfirmRestoreBody": "所有自定义按键将被移除。",
+  "keybarEditorConfirmRestoreOk": "恢复",
+  "keybarEditorConfirmRestoreCancel": "取消",
+  "keybarEditItemTitle": "编辑按键",
+  "keybarEditItemNew": "新建按键",
+  "keybarEditItemLabel": "标签",
+  "keybarEditItemSequence": "序列",
+  "keybarEditItemInsertSpecial": "插入特殊键",
+  "keybarEditItemRepeatable": "长按自动重复",
+  "keybarEditItemSequenceHint": "输入文本…",
+  "keybarEditItemSticky": "粘性修饰键（CTRL 类型）",
+  "keybarEditItemStickyHint": "不发送字节，仅切换一个标志；下一个按键会带 Ctrl 修饰发送。",
+  "keybarEditItemSave": "保存",
+  "keybarEditItemValidationLabel": "标签不能为空",
+  "keybarEditItemValidationSequence": "序列不能为空",
+  "keybarSpecialPickerTitle": "选择特殊键",
+  "keybarSpecialCategoryControl": "控制",
+  "keybarSpecialCategoryModifiers": "修饰键",
+  "keybarSpecialCategoryArrows": "方向",
+  "keybarSpecialCategoryNav": "导航",
+  "keybarSpecialCategoryModifierCombos": "修饰组合",
+  "keybarSpecialCategoryFunction": "功能键",
+  "keybarSpecialCategoryCtrl": "Ctrl 组合",
+  "keybarCtrlNotApplicable": "该按键不支持 CTRL 修饰",
+  "keybarShiftNotApplicable": "该按键不支持 SHIFT 修饰",
+  "keybarEditorSectionKeyboardMode": "键盘弹出方式",
+  "keybarEditorSectionLeftKeys": "终端键",
+  "keybarEditorSectionRightButtons": "右侧功能按钮",
+  "keybarRightButtonKeyboard": "键盘",
+  "keybarRightButtonFavorites": "收藏",
+  "keybarRightButtonMicrophone": "麦克风",
+  "keybarRightButtonAi": "AI",
+  "keybarRightButtonAttachFile": "附件",
+  "attachFileNoConnection": "连接不可用，先重连再试",
+  "attachFileNameTaken": "同名文件太多，请先清理一下",
+  "attachFileFailed": "上传失败：{error}",
+  "@attachFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "attachFileRenamed": "文件名含特殊字符，已改为 {name}",
+  "@attachFileRenamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentForwarding": "SSH Agent 转发",
+  "agentForwardingDesc": "允许远程主机通过本机密钥认证下一跳",
+  "importConfigPreviewSkills": "AI 技能",
+  "exportConfigSubject": "FlyTerm 配置备份",
+  "exportConfigDone": "已导出：{path}",
+  "@exportConfigDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportConfigFailed": "导出失败：{error}",
+  "@exportConfigFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigFailed": "导入失败：{error}",
+  "@importConfigFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigDone": "已导入 {count} 项",
+  "@importConfigDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigEmpty": "（空配置）",
+  "exportConfigIncludeAi": "包含 AI 服务商配置",
+  "exportConfigIncludeAiDesc": "关闭后备份不含 provider 配置（API Key 本就不在备份里）",
+  "exportConfigIncludeKnowledge": "包含 AI 知识与笔记",
+  "exportConfigIncludeKnowledgeDesc": "技能库与各机器的 agent 笔记。体积可能较大",
+  "importConfigKeepAppearance": "保留我当前的外观设置",
+  "importConfigKeepAppearanceDesc": "不覆盖主题、字体与 KeyBar 布局",
+  "importConfigPreviewSshKeysNotIncluded": "SSH 私钥不在备份中 —— 导入后需重新导入私钥才能用这些密钥连接",
+  "exportConfigCountServers": "{count} 台服务器",
+  "@exportConfigCountServers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountKeys": "{count} 个密钥",
+  "@exportConfigCountKeys": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountFavCmds": "{count} 条收藏",
+  "@exportConfigCountFavCmds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountAi": "{count} 个 AI 配置",
+  "@exportConfigCountAi": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountTunnels": "{count} 条隧道",
+  "@exportConfigCountTunnels": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountKnownHosts": "{count} 个已知主机",
+  "@exportConfigCountKnownHosts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountNotes": "{count} 条机器笔记",
+  "@exportConfigCountNotes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountSkills": "{count} 条 AI 技能",
+  "@exportConfigCountSkills": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfig": "导出配置",
+  "exportConfigSubtitle": "将服务器和密钥元数据保存为 JSON 文件",
+  "importConfig": "导入配置",
+  "importConfigSubtitle": "从之前导出的 JSON 文件恢复",
+  "exportConfigSendToDevice": "发送到其他设备",
+  "exportConfigSaveLocal": "保存到下载目录",
+  "exportConfigHasAiKeys": "⚠ AI 密钥（API Key）不会被导出，导入后需重新填写",
+  "importConfigPreviewKnownHosts": "已知主机",
+  "importConfigPreviewKeybarWarning": "⚠ 屏幕键盘栏将被覆盖",
+  "importConfigPreviewAiKeysNotIncluded": "⚠ 不含 AI 密钥（API Key），导入后需重新填写",
+  "exportConfigNeverBackedUp": "从未备份",
+  "exportConfigLastBackup": "上次备份：{timeAgo}",
+  "@exportConfigLastBackup": {
+    "placeholders": {
+      "timeAgo": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigPreviewTitle": "导入预览",
+  "importConfigPreviewServers": "服务器",
+  "importConfigPreviewKeys": "SSH 密钥",
+  "importConfigPreviewFavCmds": "收藏命令",
+  "importConfigPreviewAiProviders": "AI 配置",
+  "importConfigPreviewTunnels": "隧道",
+  "importConfigPreviewNew": "{count} 个（全部新增）",
+  "@importConfigPreviewNew": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importConfigPreviewWithSkip": "{newCount} 个新增，{skipCount} 个重复将跳过",
+  "@importConfigPreviewWithSkip": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "skipCount": {
+        "type": "int"
+      }
+    }
+  },
+  "importConfigPreviewSettingsWarning": "⚠ 终端设置（主题、字体大小）将覆盖当前值",
+  "importConfigConfirm": "确认导入",
+  "importConfigSuccessWithSkip": "已导入 {newCount} 项，{skipCount} 项重复已跳过",
+  "@importConfigSuccessWithSkip": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "skipCount": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSummary": "会话摘要",
+  "sessionSummaryPrompt": "请帮我总结这段终端会话：执行了哪些关键操作、哪些成功/失败了、当前状态如何。",
+  "sftpSearchHint": "搜索文件名…",
+  "sftpSortByName": "按名称",
+  "sftpSortBySize": "按大小",
+  "sftpSortByTime": "按时间",
+  "sftpSortAscending": "升序",
+  "sftpSortDescending": "降序",
+  "sftpSortToggleToDesc": "改为降序",
+  "sftpSortToggleToAsc": "改为升序",
+  "sftpSortDirectionLabel": "顺序",
+  "sftpSortTooltip": "排序",
+  "sftpResuming": "续传 {filename}",
+  "tabRefresh": "刷新",
+  "version": "版本",
+  "versionSubtitleDebugActive": "{version} · 调试面板已开启（连点切换）",
+  "debugOverlayEnabled": "调试面板已开启",
+  "debugOverlayDisabled": "调试面板已关闭",
+  "debugOverlayTapsRemaining": "再点 {count} 次切换调试面板",
+  "keyboardTrigger": "键盘弹出方式",
+  "keyboardTriggerSingleTap": "单击弹出",
+  "keyboardTriggerSingleTapDesc": "点击终端区域即弹出键盘",
+  "keyboardTriggerDoubleTap": "双击弹出",
+  "keyboardTriggerDoubleTapDesc": "快速双击终端区域弹出键盘",
+  "keyboardTriggerIconButton": "图标按钮",
+  "keyboardTriggerIconButtonDesc": "点击工具栏键盘图标弹出",
+  "selectionCopy": "复制",
+  "selectionCopied": "已复制 {count} 个字符",
+  "selectionExpired": "选区已失效，请重新选择",
+  "selectionSelect": "选择",
+  "selectionPaste": "粘贴",
+  "pasteClipboardEmpty": "剪贴板为空",
+  "pasteNotConnected": "未连接，无法粘贴",
+  "pasteTooLarge": "剪贴板内容过大（{size}），已取消粘贴",
+  "fontSection": "终端字体",
+  "fontSize": "大小",
+  "codeFont": "代码字体",
+  "codeFontDesc": "英文、数字、符号显示",
+  "fontFamilySystem": "系统默认",
+  "lineHeight": "行间距",
+  "lineHeightDesc": "字行之间的留白,数值越大越宽松",
+  "serverTypeSshMosh": "SSH / Mosh",
+  "serverTypeRemote": "远程",
+  "serverTypeLocal": "本地",
+  "localShellUnsupported": "本平台不支持本地终端，请改为连接远程服务器。",
+  "ungrouped": "其他",
+  "consentTitle": "欢迎使用 FlyTerm",
+  "consentIntro": "在使用本应用前，请阅读并同意以下条款：",
+  "consentPrivacyLink": "隐私政策",
+  "consentTosLink": "服务条款",
+  "consentCrashOptIn": "允许发送崩溃报告帮助修复问题（可在设置中关闭）",
+  "consentAcceptButton": "同意并继续",
+  "consentDeclineButton": "拒绝并退出",
+  "privacyPolicyTitle": "隐私政策",
+  "termsOfServiceTitle": "服务条款",
+  "privacyPreferences": "隐私偏好",
+  "privacyCrashReportingToggle": "崩溃报告",
+  "privacyCrashReportingDesc": "发生崩溃时上传堆栈帮助修复（已脱敏，不含主机信息）",
+  "privacyAnalyticsToggle": "使用统计",
+  "privacyAnalyticsDesc": "上传关键操作事件用于产品改进",
+  "privacyViewPolicy": "查看隐私政策",
+  "privacyViewToS": "查看服务条款",
+  "privacyRevokeButton": "撤回同意并退出应用",
+  "privacyRevokeConfirmTitle": "撤回同意？",
+  "privacyRevokeConfirmDesc": "撤回后将退出应用，下次启动需要重新同意条款。",
+  "privacyRevokeConfirmYes": "撤回并退出",
+  "privacyRevokeConfirmNo": "取消",
+  "consentSubtitle": "一款尊重你隐私的移动终端工具",
+  "consentHighlightKeysTitle": "密钥本地存储",
+  "consentHighlightKeysDesc": "加密保存在系统 Keychain / Keystore，从不上传",
+  "consentHighlightCrashTitle": "匿名崩溃报告",
+  "consentHighlightCrashDesc": "已脱敏，不含主机或账号信息",
+  "consentHighlightControlTitle": "随时可控",
+  "consentHighlightControlDesc": "在设置中可关闭崩溃报告与统计",
+  "consentAgreeBoilerplate": "继续即表示您同意我们的",
+  "consentAgreeBoilerplateAnd": "和",
+  "consentDeclineHint": "不同意？",
+  "consentDeclineExit": "退出",
+  "privacySectionDocuments": "文档",
+  "privacySectionDangerZone": "危险操作",
+  "privacyRevokeCardDesc": "撤回后下次启动需要重新同意条款",
+  "paywallTitle": "FlyTerm Pro",
+  "paywallSubtitle": "一次性买断，永久解锁全部高级功能",
+  "paywallFeatureQuic": "QUIC 协议 — 低延迟 + 网络漫游",
+  "paywallFeatureAi": "AI 集成 — 语音输入与错误分析",
+  "paywallFeatureTunnel": "端口转发 / SFTP / Mosh",
+  "paywallFeatureFutureUpdates": "永久接收未来 Pro 功能更新",
+  "paywallPurchaseButton": "购买 {price}",
+  "@paywallPurchaseButton": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallRestoreButton": "已购买？恢复",
+  "paywallContinueLater": "稍后再说",
+  "paywallLoadingPrice": "加载价格中…",
+  "paywallUnavailable": "应用商店不可用，请稍后再试",
+  "paywallPurchasePending": "支付确认中…",
+  "paywallPurchaseError": "购买失败：{error}",
+  "@paywallPurchaseError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallRestoreNoneFound": "未找到此账号下的购买记录",
+  "paywallRestoreSuccess": "已恢复购买，Pro 已解锁",
+  "proStatusPro": "FlyTerm Pro · 已激活",
+  "proStatusFree": "免费版",
+  "proStatusPurchasedAt": "于 {date} 购买",
+  "@proStatusPurchasedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "proStatusUpgrade": "升级到 Pro",
+  "proStatusRestore": "恢复购买",
+  "settingsOpenSourceLicenses": "开源许可",
+  "settingsOpenSourceLicensesSubtitle": "查看第三方库及许可证",
+  "updatePromptTitleOptional": "有可用更新",
+  "updatePromptTitleMandatory": "需要更新",
+  "updatePromptBody": "新版本 {latest} 已发布（当前 {current}）。",
+  "updatePromptReleaseNotes": "更新内容",
+  "updatePromptUpdate": "立即更新",
+  "updatePromptLater": "稍后",
+  "agentToolRunning": "执行中",
+  "agentToolDone": "完成",
+  "agentToolFailed": "失败",
+  "agentToolRejected": "已拒绝",
+  "agentToolAwaiting": "等待批准",
+  "agentToolExpand": "展开输出",
+  "agentToolCollapse": "收起",
+  "agentExitCode": "退出码 {code}",
+  "agentApprovalTitle": "需要你批准",
+  "agentAllowOnce": "允许一次",
+  "agentSilenceInSession": "本轮不再问",
+  "@agentSilenceInSession": {
+    "description": "bypass 档下凭据 deny 审批卡上的按钮：允许并在本轮排查里不再为同一条命令弹卡"
+  },
+  "agentDenyWarning": "此命令涉及凭据文件，允许后内容将发送给 {provider}",
+  "agentReasonMetachar": "命令含 shell 元字符，必须逐条确认",
+  "agentReasonNoRule": "没有匹配的允许规则",
+  "agentReasonFileWrite": "会写入文件——每次都需要确认",
+  "agentInstructionsTitle": "AI 助手说明",
+  "agentInstructionsEntry": "自定义说明",
+  "agentInstructionsEntrySet": "已设置",
+  "agentInstructionsEntryEmpty": "未设置",
+  "agentInstructionsHint": "告诉 AI 你希望它怎么回答。例如：回答简洁点，别铺排；先说结论再说过程；用中文。\n\n这份说明对所有服务器生效。某台机器自己的特殊之处（用 podman、日志在 /data/logs）请写进下面那台机器的笔记里，而不是这里。",
+  "agentInstructionsLocalLabel": "全局说明（所有服务器共用，只存在这台手机上）",
+  "agentInstructionsSaved": "已保存",
+  "agentInstructionsRemaining": "还可以输入 {n} 字节",
+  "agentInstructionsTooLong": "超出 {max} 字节，超出部分不会发给 AI",
+  "agentSkillsEntry": "技能",
+  "agentSkillsEntryEmpty": "还没有",
+  "agentSkillsEntryCount": "已存 {count} 个",
+  "agentSkillsTitle": "技能",
+  "agentSkillsHint": "助手在相关时会自己取用的排查流程和工具说明。每次请求只带上每条的那一行描述。",
+  "agentSkillsBudget": "{count} 个技能，每次请求约 {tokens} token",
+  "agentSkillsOverflow": "{count} 个技能超出索引上限，模型要先检索才能找到",
+  "agentSkillsEmpty": "还没有技能。让助手在解决完一个问题后存一个，或者从服务器、文件导入。",
+  "agentSkillsImportFromServer": "从这台服务器导入",
+  "agentSkillsImportFromFile": "从文件导入",
+  "agentSkillsImportFromFolder": "导入技能目录",
+  "agentSkillsImportFromArchive": "导入 .zip 包",
+  "skillImportAssetCount": "{n} 个附件",
+  "@skillImportAssetCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsCreateManually": "手动新建",
+  "agentSkillsImportTitle": "导入技能",
+  "agentSkillsImportNone": "这台服务器的 ~/.flyterm/skills 里没有技能。",
+  "agentSkillsImportSkipped": "{count} 个文件无法解析，已跳过",
+  "agentSkillsImportConfirm": "导入所选",
+  "agentSkillsImportNeedsDescription": "补一行描述",
+  "agentSkillsConflictTitle": "已经有一个叫「{name}」的技能",
+  "agentSkillsConflictOverwrite": "覆盖",
+  "agentSkillsConflictKeepBoth": "两份都留",
+  "agentSkillsConflictSkip": "跳过",
+  "agentSkillsSourceAi": "助手写的",
+  "agentSkillsSourceRemote": "来自服务器",
+  "agentSkillsSourceFile": "来自文件",
+  "agentSkillsSourceManual": "手动创建",
+  "agentKnowledgeCaptureTitle": "排查完自动提议沉淀",
+  "agentKnowledgeCaptureDesc": "排查完自动整理成卡片，可存为技能或机器笔记",
+  "agentSkillDetailTitle": "技能",
+  "agentSkillCreateTitle": "新建技能",
+  "agentSkillNameLabel": "名称",
+  "agentSkillDescriptionLabel": "描述（每次请求都会带上）",
+  "agentSkillBodyLabel": "正文",
+  "agentSkillAssetsLabel": "附件（由 install_skill_assets 投送到服务器）",
+  "agentSkillAssetExecutable": "可执行 —— 投送时加 x 位",
+  "agentSkillAssetData": "数据文件",
+  "skillAssetAdd": "添加文件",
+  "skillAssetEdit": "编辑文件",
+  "skillAssetEmptyHint": "没有附件。如果某段脚本每次都一样，可以加成附件。",
+  "skillAssetPathLabel": "技能目录内的路径",
+  "skillAssetPathHelper": "相对路径，如 scripts/check.sh —— 不能以 / 开头，不能有 ..",
+  "skillAssetPathInvalid": "必须是相对路径，且不含 .. 或反斜杠",
+  "skillAssetExecutableToggle": "可执行",
+  "skillAssetExecutableHint": "投送时在服务器上标记 +x",
+  "skillAssetContentLabel": "文件内容",
+  "skillAssetTotalTooBig": "这些附件合计 {bytes} 字节，上限是 {limit}。",
+  "@skillAssetTotalTooBig": {
+    "placeholders": {
+      "bytes": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillDelete": "删除技能",
+  "agentSkillDeleteConfirm": "删除这个技能？不可撤销。",
+  "agentSkillSaved": "已保存",
+  "agentSkillLoadedInPanel": "使用技能：{name}",
+  "agentSkillSaveCardTitle": "保存技能「{name}」？",
+  "agentSkillUpdateCardTitle": "更新技能「{name}」？",
+  "agentSkillNeverUsed": "从未用过",
+  "agentSkillUsedDaysAgo": "{days} 天没用了",
+  "agentSkillUsedToday": "今天用过",
+  "agentSkillHits": "用过 {n} 次",
+  "agentSkillNotLoaded": "未进索引 · 需检索",
+  "agentSkillNotLoadedHint": "超出索引上限的技能不会直接出现在 system prompt 里，模型需要先调 search_skills 才能找到它们，多花一轮工具往返。想让它一眼就看见，就腾出索引位置（禁用或删掉用不上的），而不是删掉这些。",
+  "agentBuiltinSkillsSection": "内置",
+  "agentBuiltinSkillsHint": "随 App 出厂。可以关掉，但不能删除或修改。",
+  "agentBuiltinSkillBadge": "内置",
+  "agentBuiltinSkillTitleTroubleshoot": "排查故障",
+  "agentBuiltinSkillDescTroubleshoot": "出问题时：先定位原因再动手，改完独立验证。",
+  "agentBuiltinSkillTitlePlanChange": "规划改动",
+  "agentBuiltinSkillDescPlanChange": "多步骤任务：先澄清需求，方案获批后再一步一验地改。",
+  "agentBuiltinSkillTitleSkillCreator": "写技能",
+  "agentBuiltinSkillDescSkillCreator": "写技能时：把描述写成触发条件、正文写成步骤、脚本用附件而不是写进正文。",
+  "agentAddToPlan": "加入方案",
+  "agentAddToPlanHint": "攒起来，稍后连同其他改动一起批准",
+  "agentProposalTitle": "要执行这些改动吗？",
+  "agentProposalCount": "{n} 项待执行",
+  "agentProposalApprove": "全部执行",
+  "agentProposalDiscard": "丢弃",
+  "agentProposalNote": "批准后这几项会依次执行；其中一项失败就会停下，剩下的留着等你决定。",
+  "agentKnowledgeTitle": "要把这次学到的存下来吗？",
+  "agentKnowledgeTargetSkill": "技能",
+  "agentKnowledgeTargetNotes": "本机笔记",
+  "agentKnowledgeSave": "存入",
+  "agentKnowledgeUpdate": "更新 {name}",
+  "@agentKnowledgeUpdate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentKnowledgeDismiss": "忽略",
+  "agentKnowledgeSaved": "已存入",
+  "agentKnowledgeExpand": "看全文",
+  "agentKnowledgeCollapse": "收起",
+  "agentKnowledgeNotesFull": "本机笔记已满，还需精简 {bytes} 字节",
+  "@agentKnowledgeNotesFull": {
+    "placeholders": {
+      "bytes": {
+        "type": "int"
+      }
+    }
+  },
+  "agentKnowledgeSwitchHint": "点归属标识可以改存到哪",
+  "agentAdvancedRules": "高级：自动执行清单",
+  "agentUndo": "撤销",
+  "agentUndone": "已撤销",
+  "agentUndoBackupMissing": "备份已不存在，无法撤销",
+  "agentToolSuperseded": "抢跑结果已弃用，此命令已重新执行",
+  "@agentToolSuperseded": {
+    "description": "推测执行落空后，被丢弃的那张工具卡上的说明"
+  },
+  "agentDiffEmpty": "（空）",
+  "agentDiffAtLine": "{path} · 第 {line} 行",
+  "agentDiffExpand": "显示全部",
+  "agentDiffCollapse": "收起",
+  "agentRejectReasonHint": "（可选）告诉 AI 为什么拒绝",
+  "agentStop": "停止",
+  "agentThinking": "思考中…",
+  "agentRateLimited": "已被限流，{seconds} 秒后重试",
+  "@agentRateLimited": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRunning": "执行中…",
+  "agentThinkingFor": "思考中 {seconds}s",
+  "@agentThinkingFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRunningFor": "执行中 {seconds}s",
+  "@agentRunningFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentExecutingMany": "执行 {count} 个命令 {seconds}s",
+  "@agentExecutingMany": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentAwaitingYou": "等你确认",
+  "agentAwaitingAnswer": "等你回答",
+  "agentRunningCalls": "已调用 {count} 次",
+  "@agentRunningCalls": {
+    "description": "运行条上本轮到目前为止的工具调用次数。只在 >0 时显示",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentAskOther": "其他…",
+  "agentAskUnanswered": "未回答",
+  "mentionServerColonHint": "打 : 浏览这台机器的文件",
+  "mentionUnknownServer": "没有这台机器：{name}",
+  "@mentionUnknownServer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentTurnSummary": "本轮 {duration} · {calls} 次调用 · {tokens} token",
+  "@agentTurnSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "calls": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "agentTurnSummaryTooltip": "时长含 app 切到后台的时间",
+  "agentStoppedMaxTurns": "已达轮数上限（{n} 轮）。要继续吗？",
+  "agentStoppedTokenBudget": "上下文已接近上限。要继续吗？",
+  "agentStoppedCancelled": "已停止。已经发出的命令不会撤销。",
+  "agentStoppedInvalidArgs": "模型连续给出无效的工具参数，已中止。",
+  "agentContinue": "继续",
+  "agentRetry": "重试",
+  "agentInputHint": "描述要排查的问题，@ 引用服务器，/ 开头用技能",
+  "attachPick": "添加图片或文件",
+  "attachRemove": "移除",
+  "attachUnsupportedVision": "当前模型不支持图片输入",
+  "attachTryAnyway": "仍要试一次",
+  "attachRejectBinary": "只支持图片和文本文件",
+  "attachRejectEmpty": "文件是空的",
+  "attachTooLarge": "图片太大（{size}），请裁剪后再试",
+  "@attachTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachTextTruncated": "（文件已截断，原始大小 {size}）",
+  "@attachTextTruncated": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachMissing": "图片已不可用",
+  "attachSkippedOnSend": "{count} 个附件已不可用，未随本轮发送",
+  "@attachSkippedOnSend": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "attachSaveFailed": "附件保存失败",
+  "attachUnreadable": "读不到这个文件。云盘或在线文档里的文件需要先下载到本机再选。",
+  "attachContextOverflow": "上下文超出模型上限，图片约占 {tokens} token；新建会话或移除图片后重试",
+  "@attachContextOverflow": {
+    "placeholders": {
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "mentionFilesUnavailable": "文件浏览不可用",
+  "mentionNeedAbsolutePath": "请使用绝对路径（以 / 开头）",
+  "mentionDirLoadFailed": "读取目录失败：{error}",
+  "@mentionDirLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mentionMoreEntries": "还有 {count} 条，继续输入以缩小范围",
+  "@mentionMoreEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentPendingWithdrawHint": "待发送，点击撤回",
+  "agentUsage": "输入 {input} · 输出 {output}",
+  "agentUsageCumulative": "{session} · 累计 {total}",
+  "agentUsageCached": "输入 {input}（缓存命中 {cached}）· 输出 {output}",
+  "agentNoCredentials": "该服务器没有已保存的凭据，agent 模式不可用",
+  "agentGoToServerSettings": "去设置",
+  "agentNoToolSupport": "当前模型不支持工具调用",
+  "agentSettingsTitle": "AI Agent",
+  "agentModeBypassWarning": "AI 将在这台服务器上直接执行任何命令，也能修改 FlyTerm 自身的设置。触碰凭据文件的操作和不可撤销的操作仍会询问。",
+  "agentRulesTitle": "自动允许的命令",
+  "agentRulesBuiltinGroup": "默认规则",
+  "agentRulesUserGroup": "你批准过的",
+  "agentRulesEmpty": "还没有你自己批准的规则",
+  "agentRulesFirstReview": "这些命令 AI 可以直接执行，不会问你。请过目一遍——你可以关掉任何一条。",
+  "agentRulesGotIt": "我知道了",
+  "agentRulesGoReview": "去过目放行清单",
+  "agentMemorySection": "助手记忆",
+  "agentAllowlistEntry": "自动执行清单",
+  "agentAllowlistSubtitleEnabled": "{enabled} / {total} 类已放行",
+  "agentToolTierGroup": "工具档位",
+  "agentToolTierAuto": "自动",
+  "agentToolTierLean": "精简",
+  "agentToolTierFull": "完整",
+  "agentToolTierAutoDesc": "自动：云端模型用完整工具集，本地模型（如 Ollama）用精简的 2 个工具",
+  "agentToolTierLeanDesc": "精简：只有 bash 和 read_file——适合小模型/本地模型",
+  "agentToolTierFullDesc": "完整：额外提供 write_file、edit_file、set_plan——适合能力强的云端模型",
+  "agentBannerAskTitle": "当前：会先问我",
+  "@agentBannerAskSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentBannerBypassTitle": "当前：不会问你",
+  "agentBannerPlanTitle": "当前：先出方案",
+  "agentCapabilityAutoLabel": "自动执行",
+  "agentCapabilityAutoValue": "查看日志、看进程、读文件、查容器",
+  "agentCapabilityAskLabel": "需要你确认",
+  "agentCapabilityAskValue": "改文件、重启服务、删除、任何带管道的命令",
+  "agentRuleGroupServiceTitle": "服务状态与日志",
+  "agentRuleGroupServiceSubtitle": "服务在不在跑、它的日志",
+  "agentRuleGroupSystemTitle": "系统与进程",
+  "agentRuleGroupSystemSubtitle": "谁在跑、磁盘内存还剩多少",
+  "agentRuleGroupNetworkTitle": "网络监听",
+  "agentRuleGroupNetworkSubtitle": "哪些端口在听、连到了哪里",
+  "agentRuleGroupFilesTitle": "文件内容",
+  "agentRuleGroupFilesSubtitle": "会把文件内容发给 AI",
+  "agentRuleGroupFilesWarning": "私钥、.env、.kube/config 这类文件即使这组开着也会单独弹审批。",
+  "agentRuleGroupDockerTitle": "Docker 容器",
+  "agentRuleGroupDockerSubtitle": "容器状态与日志",
+  "agentRuleGroupK8sTitle": "Kubernetes",
+  "agentRuleGroupK8sSubtitle": "集群资源与日志",
+  "agentRuleGroupOtherTitle": "其他",
+  "agentPanelBypassActiveTooltip": "全部放行已开启，agent 不会再询问",
+  "agentInstructionsExamplesLabel": "试试这些：",
+  "agentInstructionsExample1": "回答简洁点，别铺排",
+  "agentInstructionsExample2": "先说结论，再说过程",
+  "agentInstructionsExample3": "用中文回答",
+  "agentServerNotesEntry": "这台机器的笔记",
+  "agentServerNotesLines": "{n} 行",
+  "agentServerNotesNone": "未创建",
+  "agentServerNotesTitle": "这台机器的笔记",
+  "agentServerNotesHint": "这台机器的约定和脾气 —— 「用 podman 不用 docker」「日志在 /data」。每轮都会发给模型，写短一点。",
+  "agentServerNotesEmpty": "还没有内容",
+  "agentServerNotesBytes": "{used} / {max} 字节",
+  "agentServerNotesSave": "保存",
+  "agentServerNotesTooLong": "超出 {n} 字节，精简一下。",
+  "agentServerNotesOverviewEntry": "机器笔记",
+  "agentServerNotesOverviewSubtitle": "{n} 台机器",
+  "agentServerNotesOverviewEmpty": "还没有任何机器笔记。它们会在你干活的过程中攒起来，也可以在某台服务器的设置里手写。",
+  "agentServerNotesUpdatedAt": "最后更新：{time}",
+  "agentServerNotesDelete": "删除这份笔记",
+  "agentServerNotesForMachine": "机器笔记：{name}",
+  "agentToolRunningFor": "已运行 {seconds}s",
+  "@agentToolRunningFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentToolTook": "耗时 {duration}",
+  "@agentToolTook": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobRunning": "已运行 {elapsed}",
+  "@agentJobRunning": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobFinished": "已结束 · 退出码 {code}",
+  "@agentJobFinished": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobKilling": "正在终止…",
+  "agentJobSinceStart": "距启动 {elapsed}",
+  "@agentJobSinceStart": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobCheckedJustNow": "刚确认过",
+  "agentJobCheckedMinutes": "{n} 分钟前确认",
+  "@agentJobCheckedMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobCheckedHours": "{n} 小时前确认",
+  "@agentJobCheckedHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobCheckedDays": "{n} 天前确认",
+  "@agentJobCheckedDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobsBarCount": "{count} 个后台任务",
+  "@agentJobsBarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobStop": "终止",
+  "transferDownloading": "正在下载",
+  "transferUploading": "正在上传",
+  "transferRelayDownloading": "正在从 {from} 取",
+  "@transferRelayDownloading": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      }
+    }
+  },
+  "transferRelayUploading": "正在送往 {to}",
+  "@transferRelayUploading": {
+    "placeholders": {
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "transferDone": "完成",
+  "transferCancelled": "已取消",
+  "transferFailed": "失败",
+  "transferInterrupted": "已中断",
+  "transferCancel": "取消",
+  "transferOpen": "打开",
+  "transferLetAiRead": "让 AI 读完",
+  "transferShare": "分享",
+  "transferCredentialWarning": "凭据文件 —— 内容不会发给 AI",
+  "transferBackupKept": "原文件已保留在 {path}",
+  "@transferBackupKept": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "agentCompacted": "已压缩前面 {count} 条消息",
+  "@agentCompacted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentTruncated": "更早的 {count} 条已省略",
+  "@agentTruncated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentToolOutputLines": "{count} 行",
+  "@agentToolOutputLines": {
+    "description": "流水行右侧的输出行数标签",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentPlanUpdatedCollapsed": "计划已更新（{count} 步）",
+  "@agentPlanUpdatedCollapsed": {
+    "description": "被后续计划取代的旧计划清单，退成流水行时的文案",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentKnowledgeResolved": "知识提议 · 已处理",
+  "@agentKnowledgeResolved": {
+    "description": "候选知识全部处理完后，卡片退成流水行的文案"
+  },
+  "agentExportMetrics": "导出耗时计量",
+  "@agentExportMetrics": {
+    "description": "开发者模式下，AI 面板底部导出 per-turn 计量 JSONL 的按钮"
+  },
+  "batchApprovalTitle": "需要你批准",
+  "batchApprovalCount": "{count} 条",
+  "@batchApprovalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "batchApprovalCurrentSession": "当前会话",
+  "batchApprovalApproveAll": "全部同意",
+  "batchApprovalDiscard": "取消",
+  "agentInterruptedTitle": "上次会话被中断",
+  "agentInterruptedRunning": "中断时正在执行：\n{calls}",
+  "@agentInterruptedRunning": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "aiSwitchModel": "切换模型",
+  "aiModelNoToolSupport": "不支持工具调用",
+  "aiModelNoApiKey": "未配置 API Key",
+  "aiModelLeanTools": "精简工具集，不能传文件",
+  "aiExportSession": "导出会话",
+  "aiExportPreviewTitle": "导出预览",
+  "aiExportRedacted": "已脱敏 {count} 处",
+  "@aiExportRedacted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiExportShare": "分享",
+  "aiExportEmpty": "这段会话还没有可导出的内容",
+  "agentSupersededCollapsed": "已重发，{count} 条已收起",
+  "@agentSupersededCollapsed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentInterruptedResume": "继续",
+  "navAI": "AI",
+  "navServers": "服务器",
+  "navSettings": "设置",
+  "aiGlobalEmptyTitle": "有什么可以帮你？",
+  "aiGlobalSuggest1": "解释这段报错",
+  "aiGlobalSuggest2": "写一条 shell 命令",
+  "aiGlobalSuggest3": "讲讲这个配置文件",
+  "aiGlobalClearHistory": "清空历史",
+  "aiRunOnServer": "在服务器上执行…",
+  "aiGlobalAgentEmptyTitle": "想做点什么？",
+  "aiGlobalAgentSuggest1": "哪台机器磁盘快满了",
+  "aiGlobalAgentSuggest2": "检查所有机器的负载",
+  "aiGlobalAgentSuggest3": "看看 nginx 有没有报错",
+  "aiGlobalAgentSuggest4": "把终端字体调大一点",
+  "aiHomeRecent": "接着上次",
+  "aiHomeMachines": "机器",
+  "aiHomeOrAsk": "或者直接问我",
+  "aiHomeMoreMachines": "+{count}",
+  "@aiHomeMoreMachines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "relativeTimeJustNow": "刚刚",
+  "aiHomeSuggestDisk": "查一下 {machine} 的磁盘",
+  "@aiHomeSuggestDisk": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "aiHomeSuggestLoad": "看下 {machine} 的负载",
+  "@aiHomeSuggestLoad": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "aiHomeSuggestLogs": "看下 {machine} 的日志",
+  "@aiHomeSuggestLogs": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "serversScanJobs": "扫描后台任务",
+  "jobsRunningBadge": "{count, plural, other{{count} 个运行中}}",
+  "@jobsRunningBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importPasteTitle": "粘贴导入",
+  "importPasteHint": "粘贴 ssh config 片段或一行 ssh 命令",
+  "importPasteAction": "识别",
+  "importParsedTitle": "已识别",
+  "importNotRecognized": "没认出服务器信息",
+  "importFormatExamples": "支持这些格式：\nssh -p 2222 root@example.com\nHost web\n  HostName 10.0.0.5",
+  "importTryAi": "用 AI 试试",
+  "importAiFailed": "AI 也没认出来，请手动填写",
+  "importStrippedKey": "粘贴内容里的私钥已被忽略，不会发送给任何服务",
+  "importStrippedPassword": "粘贴内容里的密码行已被忽略",
+  "importSawInclude": "其中的 Include 引用的配置文件没有被读取",
+  "importNeedsManualKey": "这台机器用密钥登录，请手动选择一个密钥",
+  "importPickHost": "识别到多台机器，选一台导入",
+  "importPickServerForTunnel": "这条转发要绑定到哪台服务器？",
+  "importApplied": "已填入表单，确认后保存",
+  "appControlSection": "app 控制",
+  "appChangeBarLabel": "本轮改了 {count} 项 app 设置",
+  "@appChangeBarLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeUndo": "撤销",
+  "appChangeIrreversible": "含不可撤销的改动",
+  "appChangeCardTitle": "AI 改了 {count} 项 app 设置",
+  "@appChangeCardTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeMore": "还有 {count} 项…",
+  "@appChangeMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeUndone": "已撤销",
+  "appChangeRestoredNote": "这轮的 app 改动来自更早的会话，已无法撤销",
+  "appChangeOn": "开",
+  "appChangeOff": "关",
+  "appChangeKindServer": "服务器",
+  "appChangeKindTunnel": "端口转发",
+  "appChangeKindKey": "按键",
+  "appChangeKindSession": "会话",
+  "appChangeKindLayout": "分屏布局",
+  "appChangeFieldFontFamily": "终端字体",
+  "appChangeFieldLineHeight": "行高",
+  "jobBoardTitle": "后台任务",
+  "jobBoardNoServers": "还没有服务器",
+  "jobBoardNoJobs": "没有后台任务",
+  "jobBoardScanFailed": "扫描失败",
+  "jobBoardRetry": "重试",
+  "jobBoardSkippedEntries": "{count} 个条目无法识别",
+  "@jobBoardSkippedEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "jobBoardRunning": "运行中",
+  "jobBoardExitCode": "退出码 {code}",
+  "@jobBoardExitCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardLogTimeUnknown": "日志时间未知",
+  "jobBoardLogUpdatedAgo": "日志更新于 {ago}",
+  "@jobBoardLogUpdatedAgo": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardLineCount": "{count} 行",
+  "@jobBoardLineCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "jobBoardReadLogFailed": "读日志失败：{error}",
+  "@jobBoardReadLogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardReadingLog": "读取中…",
+  "jobBoardKillTooltip": "终止",
+  "jobBoardCopyJobIdTooltip": "复制 job id",
+  "jobBoardHandOffTooltip": "让模型接手",
+  "jobBoardNeedTabTooltip": "需要先连接这台服务器",
+  "jobBoardCopiedJobId": "已复制 job id",
+  "jobBoardKillSent": "已发送终止信号",
+  "jobBoardConfirmKillTitle": "终止这个任务？",
+  "jobBoardConfirmKillContent": "{server} 上的 {job}。\n会向整个进程组发 SIGTERM，不可撤销。",
+  "@jobBoardConfirmKillContent": {
+    "placeholders": {
+      "job": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardHandOffPrompt": "后台任务 `{id}` 还在跑。用 check_job 看它的进展，然后继续处理。",
+  "@jobBoardHandOffPrompt": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "timeJustNow": "刚刚",
+  "timeMinutesAgo": "{count} 分钟前",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count} 小时前",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count} 天前",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeToday": "今天",
+  "timeYesterday": "昨天",
+  "timeMonthsAgo": "{count} 个月前",
+  "@timeMonthsAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "knownHostFirstSeen": "首次 {date} · 最近 {time}",
+  "@knownHostFirstSeen": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fingerprintCopied": "指纹已复制",
+  "selectionColorFollowTheme": "跟随主题",
+  "selectionColorBlue": "蓝",
+  "selectionColorPurple": "紫",
+  "selectionColorOrange": "橙",
+  "selectionColorGray": "灰",
+  "floatingNotConnected": "未连接",
+  "floatingDisconnected": "已断开",
+  "floatingGhostMode": "幽灵模式",
+  "floatingExitGhostMode": "退出幽灵模式",
+  "fileSaved": "已保存",
+  "fileSaveFailed": "保存失败：{error}",
+  "@fileSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileTooLargeReadonly": "文件过大，仅显示前 512 KB，已禁用保存以防止数据丢失",
+  "imageDecodeFailed": "无法解码图片",
+  "browseAction": "浏览",
+  "keyImportFailed": "导入失败：{error}",
+  "@keyImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "keyPassphraseEmptyHint": "留空表示无密码",
+  "transferFileTitle": "传输文件 (QUIC)",
+  "transferRemotePathHint": "远端路径（如 ~/upload/file.bin）",
+  "transferUpload": "上传",
+  "transferDownload": "下载",
+  "transferWaiting": "等待中…",
+  "transferFailedWithReason": "失败：{error}",
+  "@transferFailedWithReason": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transferUnknownError": "未知",
+  "retry": "重试",
+  "loading": "加载中…",
+  "settingsConnectionAdvancedSubtitle": "压缩 {compression} · 保活 {keepAlive}",
+  "@settingsConnectionAdvancedSubtitle": {
+    "placeholders": {
+      "compression": {
+        "type": "String"
+      },
+      "keepAlive": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSecuritySubtitle": "危险保护 {state}",
+  "@settingsSecuritySubtitle": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPrivacySubtitle": "崩溃上报 {crash} · 统计 {analytics}",
+  "@settingsPrivacySubtitle": {
+    "placeholders": {
+      "crash": {
+        "type": "String"
+      },
+      "analytics": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshLosesSessionTitle": "刷新会丢失会话",
+  "refreshLosesSessionBody": "当前服务器以 Once 模式运行。刷新会启动新 shell — 原 scrollback、运行中的命令、SHELL 进程都会丢失。\n\n在服务器设置打开 Daemon 模式后，刷新会真正\"恢复\"原会话。",
+  "dontShowAgain": "不再提示",
+  "continueRefresh": "继续刷新",
+  "highRiskCommandTitle": "高风险命令",
+  "highRiskCommandBody": "此命令可能破坏数据或系统，确认执行？",
+  "aiExplain": "AI 解释",
+  "execute": "执行",
+  "quicConnectFailedHint": "QUIC 连接失败：{error}\n若需要 SSH 后备，请在 Server 设置中将 Transport 改为 SSH。",
+  "@quicConnectFailedHint": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tmuxNotFoundClosed": "[tmux 未找到，已自动关闭]",
+  "backAction": "返回",
+  "sftpRecentPaths": "最近",
+  "sftpPinnedPaths": "已收藏",
+  "sftpNoRecentPaths": "暂无历史记录",
+  "sftpNoPinnedPaths": "暂无收藏 —— 长按一条记录可置顶",
+  "sftpPathSuggestions": "建议",
+  "sftpPinPath": "置顶",
+  "sftpUnpinPath": "取消置顶",
+  "sftpRemovePath": "从历史中删除",
+  "@_promptLanguageName": {
+    "description": "这份 l10n 所用语言的自称，发给 AI 当语言锚点。新增一份 arb 时必须填上自己语言的名字——它不是给用户看的 UI 文案，而是写进 system prompt 的那个词。"
+  },
+  "agentPermReadOnly": "只读",
+  "agentPermReadOnlyDesc": "AI 能看，不能改",
+  "agentPermAsk": "先问我",
+  "agentPermAskDesc": "读命令直接跑；改文件攒起来让你一次批准",
+  "agentPermBypass": "全放行",
+  "agentPermBypassDesc": "什么都直接做，不问（凭据文件例外）",
+  "agentPermTitle": "AI 权限",
+  "agentPermFollowGlobal": "跟随全局（{mode}）",
+  "agentPermServerTitle": "此服务器的 AI 权限",
+  "agentApprovalOnce": "就这一次",
+  "agentApprovalAlways": "总是允许",
+  "agentApprovalRulePrefix": "以后都允许",
+  "agentApprovalReject": "拒绝",
+  "promptLanguageName": "简体中文"
+}

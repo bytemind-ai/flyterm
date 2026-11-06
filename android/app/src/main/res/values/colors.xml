@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- S3 — Splash backdrop. Matches the app's dark scaffold so the
+         splash → first-frame transition feels continuous instead of
+         flashing from launch color to a different in-app background.
+         Slightly off-black so the launcher icon stays visible. -->
+    <color name="launch_background_color">#0E0F12</color>
+</resources>

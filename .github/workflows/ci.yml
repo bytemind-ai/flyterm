@@ -1,0 +1,90 @@
+# PR 必过门禁。analyze 与 test 都是硬门禁 —— 开源项目首发时 analyze 红是
+# 第一印象最伤的状态，而第一印象只有一次。
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+  # build-server-assets.sh（Gradle 也会调它）在 aarch64 失败时直接报错，
+  # 不让 ARM 服务端悄悄缺席。
+  FLYTERM_REQUIRE_AARCH64: '1'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install libsqlite3 (sqflite_common_ffi tests need it)
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+
+      # 硬门禁：error > 0 即失败。info 级不阻塞。
+      - name: Analyze
+        run: |
+          flutter analyze 2>&1 | tee /tmp/analyze.log
+          ERRORS=$(grep -cE '^\s+error ' /tmp/analyze.log || true)
+          echo "errors: $ERRORS"
+          test "$ERRORS" -eq 0
+
+      # 双跑结构。裸跑验开源默认态（全解锁）。
+      - name: Test (open-source defaults)
+        run: flutter test
+
+      # 带 flag 验商店构建语义 —— 那 3 个 IAP 语义用例只在这一跑里执行。
+      - name: Test (store build semantics)
+        run: flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99'
+          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # aarch64 服务端靠 cargo-zigbuild 交叉编译。装预编译版，省掉每次
+      # cargo install 的编译时间。
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      - run: flutter pub get
+      - run: flutter gen-l10n
+
+      # 产物不分发，debug 签名即可。
+      - name: Build APK (debug-signed)
+        run: |
+          flutter build apk --release --split-per-abi \
+            --target-platform android-arm64 \
+            -PallowDebugSigning=true

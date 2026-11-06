@@ -1,0 +1,15 @@
+# 测试标签声明。
+#
+# `shell` 标记的是**真的会 fork 出 bash 进程**的那组测试
+# （`test/ai/agent/background_job_shell_test.dart`）。它们比普通单元测试慢
+# 得多（要等后台任务落盘、等 SIGTERM 生效），而且只在 Linux + util-linux 的
+# `setsid` 存在时才有意义。
+#
+# 存在的理由：后台长命令那批函数产出的是会在用户生产服务器上执行的命令
+# 字符串，字符串断言测不出 shell 的语义（`&&` 与 `&` 的优先级、`exit` 会不会
+# 掐掉后续语句、`$!` 拿到的到底是谁的 pid）。这些只有真跑一遍才知道。
+#
+# 想跳过这组：`flutter test --exclude-tags shell`
+tags:
+  shell:
+    description: 真的执行 shell 命令的集成测试，需要 Linux + setsid

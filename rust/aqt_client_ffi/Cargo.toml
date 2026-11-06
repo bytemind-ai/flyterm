@@ -1,0 +1,36 @@
+[package]
+name = "aqt_client_ffi"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lib]
+name = "aqt_client_ffi"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[build-dependencies]
+cbindgen = "0.26"
+
+[dependencies]
+aqt_protocol = { path = "../aqt_protocol" }
+bytes = { workspace = true }
+quinn = { workspace = true }
+rustls = { workspace = true }
+x509-parser = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+rand = { workspace = true }
+base64 = { workspace = true }
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+# Only the client.rs unit tests generate certificates.
+rcgen = { workspace = true }
+tempfile = "=3.13.0"
+# compression: the LZ4 write path is cfg-gated on this feature; without it
+# the server would confirm CAP_LZ4 yet send raw bytes.
+flyterm-server = { path = "../flyterm-server", features = ["compression"] }
+tokio = { workspace = true }

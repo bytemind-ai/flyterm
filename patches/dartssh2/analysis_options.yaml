@@ -1,0 +1,19 @@
+include: package:lints/recommended.yaml
+
+linter:
+  rules:
+    prefer_function_declarations_over_variables: false
+
+analyzer:
+  # 本目录自带 pubspec.yaml，所以 Dart analyzer 把它当成**独立的 analysis
+  # context root**，由本文件管辖 —— 宿主项目根级 analysis_options.yaml 的
+  # exclude 对这里完全不生效。因此排除必须写在这儿。
+  #
+  # 排除 test/ 与 example/：它们依赖本包 pubspec 的 dev_dependencies，而宿主
+  # 项目不会装那些依赖，分析必然全红（实测 1303 个 error）。lib/ 不排除 ——
+  # 那是真正编译进 app 的代码。
+  exclude:
+    - test/**
+    - example/**
+  plugins:
+    - dart_code_metrics_presets

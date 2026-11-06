@@ -1,0 +1,52 @@
+name: aqt_protocol
+
+on:
+  pull_request:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust-aqt-protocol.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust-aqt-protocol.yml'
+  # 新安全公告不等代码变动也会冒出来：每周一只跑一次 advisories 检查。
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  test:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99'
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo fmt --check
+      - run: cargo clippy -p aqt_protocol -- -D warnings
+      - run: cargo test -p aqt_protocol --all-features
+      # 整个 workspace：flyterm-server 与 aqt_client_ffi 的测试（含进程内起
+      # 服务端的 e2e）以前不在 CI 里，于是 build_endpoint 改签名、zstd→LZ4
+      # 之后它们烂了很久没人发现。
+      - run: cargo test --workspace
+
+  # 许可证（只放行与 GPL-3.0 兼容的；OpenSSL 许可证、aws-lc 一律拒绝）、
+  # 安全公告、来源。规则见 rust/deny.toml。
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: rust/Cargo.toml
+          command: ${{ github.event_name == 'schedule' && 'check advisories' || 'check' }}
+          # 不再维护的 crate 只告警不阻断（见 rust/deny.toml）。
+          command-arguments: -W unmaintained

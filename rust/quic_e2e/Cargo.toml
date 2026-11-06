@@ -1,0 +1,13 @@
+[package]
+name = "quic_e2e"
+version = "0.1.0"
+edition = "2021"
+license.workspace = true
+publish = false
+
+[dependencies]
+aqt_client_ffi = { path = "../aqt_client_ffi" }
+aqt_protocol   = { path = "../aqt_protocol" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+base64 = "0.21"

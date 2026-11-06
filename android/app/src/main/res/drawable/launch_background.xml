@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modify this file to customize your launch splash screen.
+     S3 — replaced pure-black background with a layered launcher icon
+     centered on a dark seed-color backdrop. Splash shows from process
+     start until Flutter draws first frame; previously this was an
+     empty black rect that read as a hang. Now there's branded feedback.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark backdrop close to the app theme's scaffold color so the
+         splash → first-frame transition is visually continuous. -->
+    <item android:drawable="@color/launch_background_color" />
+
+    <!-- Launcher icon centered. Uses the existing adaptive ic_launcher
+         set — no new asset required. Stays visible during process
+         startup + the synchronous block of main() in main.dart. -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/ic_launcher" />
+    </item>
+</layer-list>

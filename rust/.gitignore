@@ -1,0 +1,18 @@
+target/
+# Cargo.lock 必须入库。
+#
+# 这个工作区产出二进制（flyterm-server）与一个 FFI 动态库，属于 Rust 官方
+# 明确建议提交 lock 的那一类。忽略它造成过一个隐蔽后果：新 clone / CI /
+# 新机器都构建不出来。
+#
+# 原因是 Cargo.toml 里那句 `time = { version = "=0.3.36" }` 写在
+# [workspace.dependencies] 下，而它**只对显式写 `time = { workspace = true }`
+# 的成员 crate 生效**；time 在这里是传递依赖，没有任何成员直接声明它，所以
+# 那个 pin 对解析毫无作用。新环境重新解析会拿到需要 edition2024 的 time，
+# 而工具链固定在 Rust 1.75。
+#
+# 让这台机器能构建的唯一原因，是它本地那份被忽略的 lock 里恰好躺着 0.3.36。
+# 任何人跑一次 cargo update 或删掉它，构建就一起坏。
+fuzz/corpus/
+fuzz/artifacts/
+server-sha.txt

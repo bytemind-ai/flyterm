@@ -1,0 +1,29 @@
+# Weekly dependency updates. Minor/patch bumps are grouped into one PR per
+# ecosystem; majors come individually so each migration gets its own review.
+# Security updates are separate and immediate (repo setting: Dependabot
+# security updates).
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /rust
+    schedule:
+      interval: weekly
+    groups:
+      rust-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pub
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pub-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

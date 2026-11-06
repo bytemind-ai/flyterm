@@ -1,0 +1,48 @@
+# This file configures the analyzer, which statically analyzes Dart code to
+# check for errors, warnings, and lints.
+#
+# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
+# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
+# invoked from the command line by running `flutter analyze`.
+
+# The following line activates a set of recommended lints for Flutter apps,
+# packages, and plugins designed to encourage good coding practices.
+analyzer:
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    # 下面四条对 vendored fork **不生效**，留着只是兜底（万一哪天 fork 的
+    # pubspec.yaml 被删，它们就会退回受本文件管辖）。
+    #
+    # 不生效的原因：packages/xterm 与 patches/dartssh2 各自带 pubspec.yaml，
+    # Dart analyzer 据此把它们当成**独立的 analysis context root**，由各自
+    # 目录下的 analysis_options.yaml 管辖；根级 exclude 伸不进去。实测加了
+    # 这四条之后 error 数一个没少（1763 → 1763）。
+    #
+    # 真正起作用的排除写在这两处：
+    #   packages/xterm/analysis_options.yaml
+    #   patches/dartssh2/analysis_options.yaml
+    - packages/*/example/**
+    - packages/*/test/**
+    - patches/*/example/**
+    - patches/*/test/**
+include: package:flutter_lints/flutter.yaml
+
+linter:
+  # The lint rules applied to this project can be customized in the
+  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
+  # included above or to enable additional rules. A list of all available lints
+  # and their documentation is published at https://dart.dev/lints.
+  #
+  # Instead of disabling a lint rule for the entire project in the
+  # section below, it can also be suppressed for a single line of code
+  # or a specific dart file by using the `// ignore: name_of_lint` and
+  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
+  # producing the lint.
+  rules:
+    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
+    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+
+# Additional information about this file can be found at
+# https://dart.dev/guides/language/analysis-options

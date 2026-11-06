@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#![forbid(unsafe_code)]
+pub mod audit;
+pub mod b64;
+pub mod bootstrap;
+pub mod cli;
+pub mod connection;
+pub mod endpoint;
+pub mod error;
+pub mod file_handler;
+#[cfg(feature = "history")]
+pub mod history;
+pub mod installer;
+pub mod notify;
+#[cfg(feature = "persist-sessions")]
+pub mod persistent;
+pub mod pty_task;
+pub mod session;
+pub mod snapshot;
+pub mod tls;

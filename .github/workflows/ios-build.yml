@@ -1,0 +1,165 @@
+# iOS 构建验证 —— 与 ios-recon.yml 的区别是「不篡改依赖」。
+#
+# ios-recon 会跑 `pub upgrade --major-versions` 去探测升级面，那会把
+# file_picker / local_auth / flutter_local_notifications 一起升到最新大版本，
+# 重新引入 21 个 error。本 workflow 只 `pub get`，用仓库里 pubspec 锁定的版本，
+# 验证的是「这份代码到底能不能出 iOS 包」。
+#
+# 因此这里**不用** continue-on-error：要的是明确的成功/失败信号。
+
+name: ios-build
+
+on:
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: '3.47.2'
+
+jobs:
+  # 1x 计费：Dart 侧回归。本地已验证过，这里是防止「本地能过 CI 不能过」。
+  dart-check:
+    name: Dart 回归 (ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: 装 libsqlite3
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libsqlite3-dev
+      - run: flutter pub get
+      - name: flutter test
+        run: flutter test --reporter compact
+
+  # 10x 计费：真正的 iOS 构建。
+  ios-build:
+    name: iOS 构建 (macos-26)
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 环境快照
+        run: |
+          sw_vers
+          xcodebuild -version
+          pod --version
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # 只 pub get，绝不 upgrade —— 用仓库锁定的依赖版本
+      - run: flutter pub get
+
+      # 8.x 的原生 SDK 在 Xcode 26 上编译失败，与其等 30 分钟后挂在 Swift 编译，
+      # 不如在这里 5 秒内失败。注意 version: 在 lock 里离键名有 7 行，-A2 取不到
+      # （会得到空串并静默放行 —— 守卫失效比没有守卫更糟），所以用 -A10 并显式拒空。
+      - name: 确认 sentry 版本（8.x 会让 Xcode 26 编译失败）
+        run: |
+          V=$(grep -A10 '^  sentry_flutter:' pubspec.lock | grep -m1 'version:' | tr -d ' "' | cut -d: -f2)
+          echo "sentry_flutter = '$V'"
+          case "$V" in
+            "")  echo "::error::没能从 pubspec.lock 解析出 sentry_flutter 版本，探测逻辑失效"; exit 1 ;;
+            8.*) echo "::error::sentry_flutter $V 与 Xcode 26 不兼容，需 >=9.0.0"; exit 1 ;;
+            *)   echo "✅ $V" ;;
+          esac
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: 构建 AqtClientFfi.xcframework
+        run: cd ios && ./build-aqt-xcframework.sh
+
+      - name: flutter build ios --no-codesign
+        run: |
+          set -o pipefail
+          mkdir -p build-logs
+          flutter build ios --no-codesign 2>&1 | tee build-logs/build-ios.log
+
+      - name: 产物确认
+        run: |
+          echo "=== .app 产物 ==="
+          ls -la build/ios/iphoneos/
+          du -sh build/ios/iphoneos/*.app
+          echo "=== 嵌入的 Flutter framework ==="
+          ls build/ios/iphoneos/Runner.app/Frameworks/ 2>/dev/null || true
+
+      # 打成未签名 IPA。iOS 不会安装未签名包，所以这个产物本身装不上，
+      # 但可以在 Mac 上用 Sideloadly + 免费 Apple ID 自签后装真机（7 天有效），
+      # 不需要 Apple Developer 账号，也不需要装 Xcode。
+      # IPA 就是 Payload/ 目录下放 .app 再 zip，没有别的魔法。
+      - name: 打包未签名 IPA
+        run: |
+          mkdir -p ipa-out/Payload
+          cp -R build/ios/iphoneos/Runner.app ipa-out/Payload/
+          cd ipa-out && zip -qry flyterm-unsigned.ipa Payload && rm -rf Payload
+          ls -la flyterm-unsigned.ipa
+          du -sh flyterm-unsigned.ipa
+
+      # 模拟器版是另一套 arch（x86_64/arm64-sim），必须单独构建。
+      # 模拟器不校验签名，拖进去就能跑 —— 但需要 Mac 上装 Xcode。
+      - name: 构建模拟器版
+        run: |
+          set -o pipefail
+          flutter build ios --simulator 2>&1 | tee build-logs/build-sim.log
+          # 用子 shell 做 cd，否则后面的相对路径会以 iphonesimulator/ 为基准
+          # （踩过：zip 成功了但紧跟的 ls 找 iphonesimulator/ipa-out/ 而报错，
+          #  整个 step 判失败，实际产物是好的）
+          (cd build/ios/iphonesimulator && zip -qry ../../../ipa-out/flyterm-simulator-app.zip Runner.app)
+          ls -la ipa-out/flyterm-simulator-app.zip
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-app
+          path: ipa-out/
+          retention-days: 30
+
+      - name: 汇总
+        if: always()
+        run: |
+          {
+            echo "## iOS 构建结果"
+            echo ""
+            if [ -d build/ios/iphoneos/Runner.app ]; then
+              echo "✅ **构建成功**"
+              echo ""
+              echo '```'
+              du -sh build/ios/iphoneos/Runner.app
+              du -sh ipa-out/* 2>/dev/null || true
+              echo '```'
+              echo ""
+              echo "产物在 artifact **ios-app** 里："
+              echo ""
+              echo "| 文件 | 怎么用 |"
+              echo "|---|---|"
+              echo "| \`flyterm-unsigned.ipa\` | Mac 上用 Sideloadly + 免费 Apple ID 自签装真机（7 天有效，不需 Xcode / 不需 \$99 账号） |"
+              echo "| \`flyterm-simulator-app.zip\` | 解压后拖进 iOS 模拟器即可运行（需 Mac 装 Xcode） |"
+              echo ""
+              echo "> 未签名 IPA 无法直接安装，必须先自签。"
+            else
+              echo "❌ 构建失败，见日志 artifact"
+              echo ""
+              echo '```'
+              grep -E "error:|Error \(Xcode\)|BUILD FAILED" build-logs/build-ios.log 2>/dev/null | head -20 || echo "(无日志)"
+              echo '```'
+            fi
+          } >> $GITHUB_STEP_SUMMARY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build-logs
+          path: build-logs/
+          retention-days: 30

@@ -1,0 +1,79 @@
+FlyTerm
+Copyright (C) 2026 FlyTerm contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See the LICENSE file for the full text.
+
+================================================================================
+THIRD-PARTY COMPONENTS
+================================================================================
+
+This repository vendors and modifies third-party code. All of it is MIT
+licensed, which permits redistribution within a GPL work provided the original
+copyright notices are retained. They are reproduced below.
+
+--------------------------------------------------------------------------------
+xterm.dart  —  packages/xterm/
+--------------------------------------------------------------------------------
+Upstream:  https://github.com/TerminalStudio/xterm.dart
+Version:   4.0.0
+License:   MIT
+Copyright: (c) 2020 xuty
+
+This is a MODIFIED fork, not an unused copy. It takes effect through
+`dependency_overrides` in pubspec.yaml, so builds use this tree rather than
+the pub.dev release.
+
+Modifications: see git history under packages/xterm/. Summary of areas changed:
+terminal buffer handling for CJK double-width cells, and scrollback behaviour
+required by the mobile agent-session use case.
+
+Full license text: packages/xterm/LICENSE
+
+--------------------------------------------------------------------------------
+dartssh2  —  patches/dartssh2/
+--------------------------------------------------------------------------------
+Upstream:  https://github.com/TerminalStudio/dartssh2
+Version:   2.17.0
+License:   MIT
+Copyright: (c) 2022 xuty
+
+This is a MODIFIED fork, applied through `dependency_overrides` in pubspec.yaml.
+
+Modifications: see git history under patches/dartssh2/. Diffed against the
+unmodified pub.dev 2.17.0 release, the fork adds three things: (1)
+chacha20-poly1305@openssh.com cipher support — a full AEAD encode/decode path
+in ssh_transport.dart that upstream 2.17.0 never implemented; (2) zlib /
+zlib@openssh.com compression negotiation and (de)compression, offered via a
+new caller-controlled `algorithms.compress` list; (3) the SSH channel's
+initial window bumped from 2 MiB to 16 MiB for high-BDP links. AES-GCM is NOT
+part of this fork's changes — upstream 2.17.0's own default cipher list never
+included GCM either way. AES-GCM is disabled one layer up, in the
+application's own algorithm preference list (lib/ssh/ssh_connection.dart; see
+commit 34c99e72): dartssh2 2.17's GCM support caused SSHAuthAbortError on
+reconnect, so the app prefers chacha20-poly1305 first, then CTR, then CBC.
+
+Full license text: patches/dartssh2/LICENSE
+
+--------------------------------------------------------------------------------
+vt100-rust  —  rust/vendor/vt100/
+--------------------------------------------------------------------------------
+Upstream:  https://github.com/doy/vt100-rust
+Version:   0.15.2
+License:   MIT
+Copyright: (c) 2016 Jesse Luehrs
+
+Full license text: rust/vendor/vt100/LICENSE
+
+================================================================================
+BUNDLED FONTS  —  assets/fonts/
+================================================================================
+
+JetBrains Mono          SIL Open Font License 1.1   (c) The JetBrains Mono Project Authors
+Courier Prime           SIL Open Font License 1.1   (c) The Courier Prime Project Authors
+DejaVu Sans Mono        DejaVu Fonts License (Bitstream Vera derivative)
+Noto Sans Symbols 2     SIL Open Font License 1.1   (c) Google Inc.
+
+Per-font license texts are in assets/fonts/licenses/.

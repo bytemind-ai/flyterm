@@ -1,0 +1,2280 @@
+{
+  "@@locale": "en",
+  "appTitle": "FlyTerm",
+  "newConnection": "New Connection",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "save": "Save",
+  "add": "Add",
+  "edit": "Edit",
+  "sftpViewSource": "View source",
+  "sftpViewPreview": "View rendered",
+  "sftpMarkdownTruncated": "File is large — showing the first part.",
+  "required": "Required",
+  "confirm": "OK",
+  "importAction": "Import",
+  "noServers": "No servers",
+  "addServer": "Add Server",
+  "viaJumpHost": "Via jump host",
+  "newSession": "New Session",
+  "sftpFileBrowser": "SFTP File Browser",
+  "newTunnel": "New Tunnel",
+  "deleteServerTitle": "Delete Server?",
+  "confirmDeleteServer": "Delete \"{name}\"?",
+  "@confirmDeleteServer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpConnectFailed": "SFTP connection failed: {error}",
+  "@sftpConnectFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "editServer": "Edit Server",
+  "newServer": "New Server",
+  "labelName": "Name",
+  "labelHost": "Host",
+  "labelHostHelper": "IPv4, IPv6, or hostname (brackets around IPv6 are optional)",
+  "labelPort": "Port",
+  "addressFamilyLabel": "Address family",
+  "addressFamilyAuto": "Auto (prefer IPv6)",
+  "addressFamilyIpv4": "Force IPv4",
+  "addressFamilyIpv6": "Force IPv6",
+  "invalidPort": "Invalid port",
+  "labelUsername": "Username",
+  "labelStartupCommand": "Command after connect (optional)",
+  "hintStartupCommand": "e.g. tmux, cd /var/log",
+  "authMethod": "Authentication",
+  "authPassword": "Password",
+  "authSshKey": "SSH Key",
+  "labelPassword": "Password",
+  "selectKey": "Select Key",
+  "keyRequired": "Please select a key",
+  "addSshKey": "Add new key",
+  "hostKeyTofuTitle": "First connection — verify host key",
+  "hostKeyTofuBody": "FlyTerm has not seen this server before. Confirm the fingerprint matches the one your server administrator gave you.",
+  "hostKeyMismatchTitle": "Host key changed!",
+  "hostKeyMismatchBody": "The host's key is different from what was stored. This can happen if the server was reinstalled — but it can also be a man-in-the-middle attack. Verify with the administrator before continuing.",
+  "hostKeyHost": "Host",
+  "hostKeyType": "Key type",
+  "hostKeyFingerprint": "Fingerprint (MD5)",
+  "hostKeyExpected": "Expected fingerprint",
+  "hostKeyActual": "Received fingerprint",
+  "hostKeyAccept": "Trust and connect",
+  "hostKeyAcceptAnyway": "Connect anyway (replace stored key)",
+  "hostKeyReject": "Cancel",
+  "knownHostsTitle": "Known Hosts",
+  "knownHostsEntry": "Known Hosts",
+  "knownHostsEntrySubtitle": "Trusted server fingerprints",
+  "knownHostsEmpty": "No trusted hosts yet. The first time you connect to a new server you will be asked to confirm its fingerprint.",
+  "knownHostDelete": "Delete",
+  "knownHostDeleteTitle": "Forget this host?",
+  "sshCompressionTitle": "SSH compression",
+  "sshCompressionDesc": "Use zlib for SSH traffic — large bandwidth savings on slow / metered links. Disable for fast LAN where CPU cost outweighs the gain.",
+  "backgroundKeepAliveTitle": "Background keep-alive",
+  "backgroundKeepAliveDesc": "Keep terminal sessions connected while the app is in the background. The cost is a permanent entry in the notification shade — Android requires foreground services to show one and it cannot be hidden. With this off, sessions drop when you leave the app and server-pushed task notifications won't arrive.",
+  "notificationPermissionTitle": "Notification permission",
+  "notificationPermissionGranted": "Notifications are allowed",
+  "notificationPermissionDenied": "Notifications are blocked for FlyTerm — task and approval alerts cannot be shown",
+  "notificationPermissionChannelDisabled": "The “Task Notifications” channel is turned off — alerts cannot be shown",
+  "notificationPermissionUnknown": "Can't determine notification permission on this device",
+  "notificationPermissionOpenSettings": "Open system settings",
+  "notificationPermissionRequest": "Allow notifications",
+  "notifySessionGone": "That session is no longer open",
+  "knownHostDeleteBody": "FlyTerm will ask to confirm the fingerprint again on the next connection to {host}.",
+  "@knownHostDeleteBody": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "tmuxAutoRecover": "tmux Auto-Recovery",
+  "tmuxAutoRecoverDesc": "Restore terminal session on reconnect; requires tmux on server",
+  "transport": "Transport",
+  "transportRecommended": "recommended",
+  "useTmux": "Use tmux (process persistence)",
+  "useTmuxDesc": "Only needed if PTY must survive the remote server restarting",
+  "useDaemon": "Daemon mode (long-running on remote)",
+  "useDaemonDesc": "Enables cross-SSH-session continuation; explicit error on start failure (strict)",
+  "useMosh": "Use Mosh",
+  "moshDesc": "UDP connection with roaming; requires mosh-server on server",
+  "moshNotSupportedWithJump": "Mosh does not support jump hosts — change transport or disable jump host",
+  "moshPortRange": "Mosh Port Range",
+  "moshPortRangeFormat": "Format: start:end",
+  "moshPortMustBeInt": "Ports must be integers",
+  "moshStartBeforeEnd": "Start port must be less than end port",
+  "useJumpHost": "Use Jump Host",
+  "useJumpHostDesc": "Connect through another server",
+  "selectJumpServer": "Select Jump Server",
+  "jumpServerRequired": "Please select a jump server",
+  "addJumpServer": "Add Jump Server",
+  "sectionConnection": "Connection",
+  "sectionAccount": "Account",
+  "sectionAppearance": "Appearance",
+  "sectionInput": "Input",
+  "sectionSecurity": "Security",
+  "sectionAbout": "About",
+  "appearanceSettingsTitle": "Appearance",
+  "connectionAdvancedTitle": "Advanced Connection",
+  "securitySettingsTitle": "Security",
+  "aboutTitle": "About",
+  "keybarCount": "{count} items",
+  "@keybarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "sectionAI": "AI",
+  "sectionData": "Data & Privacy",
+  "settings": "Settings",
+  "sshKeys": "SSH Keys",
+  "sshKeysSubtitle": "Manage SSH key pairs",
+  "aiProviders": "AI Providers",
+  "aiProvidersSubtitle": "Configure AI API keys",
+  "tunnels": "Tunnels",
+  "tunnelCountBadge": "{count} tunnels",
+  "@tunnelCountBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiErrorHint": "AI Error Analysis",
+  "aiErrorHintDesc": "Suggest AI analysis on errors",
+  "terminalFontSize": "Terminal Font Size",
+  "terminalCursorStyle": "Cursor Style",
+  "terminalCursorStyleDefault": "Default",
+  "terminalCursorStyleVerticalBar": "Vertical bar",
+  "terminalCursorStyleBlock": "Block",
+  "terminalCursorStyleUnderline": "Underline",
+  "dangerousCommandGuard": "Dangerous Command Guard",
+  "dangerousCommandGuardDesc": "Prompt for confirmation when typing high-risk commands like rm -rf or dd",
+  "commandCompletionTitle": "Command completion",
+  "commandCompletionSubtitle": "Suggest commands from history and the remote shell. Runs locally — no AI provider needed.",
+  "noKeys": "No keys",
+  "copyPublicKey": "Copy Public Key",
+  "addKey": "Add Key",
+  "publicKeyCopied": "Public key copied to clipboard",
+  "deleteKeyTitle": "Delete Key?",
+  "confirmDeleteKey": "Delete \"{name}\"?",
+  "@confirmDeleteKey": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "generateEd25519": "Generate Ed25519 Key",
+  "generateRsa4096": "Generate RSA 4096 Key",
+  "importFromPem": "Import from PEM",
+  "keyName": "Key Name",
+  "keyNameHint": "e.g. my-macbook",
+  "pastePem": "Paste private key (PEM format)",
+  "noProviders": "No AI providers",
+  "setDefault": "Set as default",
+  "addProvider": "Add Provider",
+  "deleteProviderTitle": "Delete Provider?",
+  "confirmDeleteProvider": "Delete \"{name}\"?",
+  "@confirmDeleteProvider": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "editProvider": "Edit Provider",
+  "displayName": "Display name",
+  "providerType": "Provider type",
+  "model": "Model",
+  "baseUrl": "Base URL (optional)",
+  "apiKey": "API Key",
+  "apiKeyEditHint": "API Key (leave blank to keep existing)",
+  "extrasJson": "Extra Parameters (JSON, optional)",
+  "invalidJson": "Enter a valid JSON object",
+  "setAsDefault": "Set as default provider",
+  "providerSectionIdentity": "IDENTITY",
+  "providerSectionEndpoint": "ENDPOINT",
+  "providerSectionAuth": "AUTH",
+  "providerSectionAdvanced": "ADVANCED",
+  "providerSectionPresets": "PRESETS",
+  "providerModelVolatileHint": "Model IDs change. If the API reports an unknown model, check the provider's console for the current name.",
+  "noTunnels": "No tunnels",
+  "tapPlusToAdd": "Tap + to create one",
+  "reconnect": "Reconnect",
+  "deleteTunnelTitle": "Delete Tunnel?",
+  "confirmDeleteTunnel": "Delete \"{name}\" and its saved config?",
+  "@confirmDeleteTunnel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "disableAutoConnect": "Disable Auto-Connect",
+  "enableAutoConnect": "Enable Auto-Connect",
+  "startTunnel": "Start",
+  "stopTunnel": "Stop",
+  "deleteConfig": "Delete Config",
+  "tunnelStatusActive": "Active",
+  "tunnelStatusConnecting": "Connecting…",
+  "tunnelStatusReconnecting": "Reconnecting ({count}/{max})…",
+  "@tunnelStatusReconnecting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "tunnelStatusFailed": "Failed",
+  "tunnelStatusError": "Error",
+  "tunnelStatusStopped": "Stopped",
+  "selectServer": "Select server",
+  "tunnelDirLocal": "Local",
+  "tunnelDirRemote": "Remote",
+  "tunnelDescLocal": "Phone port → Server port (access remote services)",
+  "tunnelDescRemote": "Server port → Phone port (expose local services)",
+  "tunnelDescSocks5": "Start SOCKS5 proxy on phone port (traffic via SSH)",
+  "labelLocalPort": "Local Port (phone)",
+  "invalidTunnelPort": "Enter a valid port (1–65535)",
+  "labelRemoteHost": "Remote Host",
+  "labelRemotePort": "Remote Port",
+  "labelTunnelLabel": "Label (optional)",
+  "hintTunnelLabel": "e.g. MySQL 3306",
+  "autoStartTunnel": "Auto-Connect on Start",
+  "autoStartTunnelDesc": "Auto-reconnect this tunnel on app launch",
+  "submitOnce": "One-time",
+  "submitSaveAndStart": "Save & Start",
+  "tunnelFailed": "Failed: {error}",
+  "@tunnelFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "pleaseSelectServer": "Please select a server",
+  "errorDetected": "Error detected, AI can help analyze",
+  "aiAnalyze": "AI Analysis",
+  "aiAnalyzeError": "Help me analyze this error in the terminal",
+  "aiAnalyzeErrorChip": "Analyze error",
+  "moshFallback": "Mosh fell back to SSH: {message}",
+  "@moshFallback": {
+    "placeholders": {
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "reconnectInProgress": "Reconnecting...",
+  "refreshing": "Refreshing...",
+  "reconnectSuccess": "Reconnected",
+  "reconnectFailedWithError": "Reconnect failed: {error}",
+  "@reconnectFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "reconnectErrTimeout": "Connection timed out",
+  "reconnectErrRefused": "Connection refused",
+  "reconnectErrReset": "Connection reset",
+  "reconnectErrUnreachable": "Network unreachable",
+  "reconnectErrDns": "DNS lookup failed",
+  "reconnectErrAuth": "Authentication failed",
+  "reconnectErrPermission": "Permission denied",
+  "reconnectErrSocket": "Network error",
+  "reconnectRetryCountdown": "Retrying in {seconds}s (round {round} {attempt}/{total})...",
+  "@reconnectRetryCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      },
+      "round": {
+        "type": "int"
+      },
+      "attempt": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "reconnectNetworkUnstableRetry": "Network unstable, retrying in 30s",
+  "reconnectCascadeWarning": "{protocol}: reconnected {count} times within {minutes} minutes. Network may be unstable.",
+  "@reconnectCascadeWarning": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "reconnectLoopDetected": "{protocol}: reconnect loop detected. Auto reconnect stopped. Refresh manually.",
+  "@reconnectLoopDetected": {
+    "placeholders": {
+      "protocol": {
+        "type": "String"
+      }
+    }
+  },
+  "reconnectMoshHandshake": "Mosh handshaking...",
+  "reconnectMoshConnected": "Mosh SSP connected",
+  "reconnectMoshFallback": "Mosh fallback to SSH",
+  "reconnectMoshFallbackWithReason": "Mosh fallback to SSH: {reason}",
+  "@reconnectMoshFallbackWithReason": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "reconnectMoshDisconnectedRestoring": "Mosh disconnected, restoring session...",
+  "reconnectMoshSessionRestored": "Mosh session restored",
+  "reconnectMoshRestoreFailedRehandshake": "Mosh session restore failed, handshaking again...",
+  "tmuxNotFoundDisabled": "tmux not found, disabled automatically",
+  "enterPassword": "Enter Password",
+  "split": "Split",
+  "tabMove": "Move",
+  "splitVertical": "Top-Bottom Split",
+  "splitHorizontal": "Left-Right Split",
+  "layoutPickerTitle": "Split",
+  "layoutSingle": "Single",
+  "layoutWithCurrent": "Split · {state}",
+  "@layoutWithCurrent": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "closeSplit": "Close Split",
+  "floatTerminal": "Float Terminal",
+  "closeFloat": "Close Float",
+  "saveFavoriteDialogTitle": "Save Command",
+  "favoriteCommandNameLabel": "Command Name",
+  "commandSaved": "Command saved",
+  "notConnected": "Not connected",
+  "back": "Back",
+  "connectingTo": "Connecting to {host}…",
+  "@connectingTo": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceUnavailable": "Voice input is currently unavailable",
+  "voicePermissionTitle": "Enable Voice Input",
+  "voiceMicrophonePermissionContent": "Voice input needs microphone permission. Allow FlyTerm to use the microphone in system settings.",
+  "voiceSpeechPermissionContent": "On iPhone/iPad, voice input also needs Speech Recognition permission. Allow FlyTerm to use Speech Recognition in system settings.",
+  "voiceRecognizerUnavailableContent": "Microphone permission was checked, but the system speech recognition service is unavailable or disabled. Enable system voice input / voice assistant, or install Google app / a system speech service and try again. If that still doesn't work, most keyboards have their own microphone key — it uses the keyboard's own recognition, independent of this app.",
+  "voiceNoSpeechContent": "No speech was detected. Make sure the system microphone toggle is on, this device has a working microphone, and no other app is using it.",
+  "voiceBusyContent": "Speech recognition is busy. Try again later.",
+  "voiceNetworkContent": "Speech recognition needs network access. Check your connection and try again.",
+  "voiceUnknownContent": "Voice input is temporarily unavailable. Check microphone permission and the system speech recognition service, then try again.",
+  "voiceOpenSettings": "Open Settings",
+  "voiceRetry": "Check Again",
+  "voiceLater": "Later",
+  "voiceErrorTitle": "Voice Input Failed",
+  "voiceErrorHint": "You can select and copy the text below to report this issue:",
+  "voiceCopyDiagnostics": "Copy Diagnostics",
+  "voiceDiagnosticsCopied": "Copied",
+  "sftpSaved": "Saved: {name}",
+  "@sftpSaved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpSymlinkTarget": "→ {target}",
+  "@sftpSymlinkTarget": {
+    "placeholders": {
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpSymlinkDangling": "Link target does not exist",
+  "sftpErrPermissionDenied": "Permission denied. Check the file's permissions.",
+  "sftpErrNotFound": "Path does not exist. It may have been moved or deleted.",
+  "sftpErrDiskFull": "Not enough space on the remote host.",
+  "sftpErrDisconnected": "Connection lost. Reconnect and try again.",
+  "sftpErrAlreadyExists": "A file with this name already exists.",
+  "sftpErrRawDetail": "Details",
+  "downloadSavedToPublic": "Saved to {path}",
+  "@downloadSavedToPublic": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "open": "Open",
+  "sftpDownloadFailed": "Download failed: {error}",
+  "@sftpDownloadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpBatchSelect": "Batch Select",
+  "sftpDownloadFolder": "Download Folder",
+  "sftpDownload": "Download",
+  "sftpOpenWithSystem": "Open with another app",
+  "sftpConfirmLargeOpen": "{name} is {size}. Download it and open with another app?",
+  "@sftpConfirmLargeOpen": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpOpeningFile": "Downloading {name}…",
+  "@sftpOpeningFile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rename": "Rename",
+  "permissions": "Permissions",
+  "sftpNewName": "New Name",
+  "sftpConfirmDeleteEntry": "Delete \"{name}\"?",
+  "@sftpConfirmDeleteEntry": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpNewFolderTitle": "New Folder",
+  "sftpFolderName": "Folder Name",
+  "sftpNewFileTitle": "New File",
+  "sftpFileName": "File Name",
+  "sftpJumpToPath": "Jump to Path",
+  "create": "Create",
+  "jump": "Jump",
+  "apply": "Apply",
+  "sftpPermissionsTitle": "Permissions — {name}",
+  "@sftpPermissionsTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpOwner": "Owner",
+  "sftpGroup": "Group",
+  "sftpOther": "Other",
+  "sftpRead": "Read",
+  "sftpWrite": "Write",
+  "sftpExecute": "Exec",
+  "sftpSelectedCount": "{count} selected",
+  "@sftpSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpSelectAll": "Select All",
+  "sftpSelectedItems": "{count} items selected",
+  "@sftpSelectedItems": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpScanningFiles": "Scanning... {count} files found",
+  "@sftpScanningFiles": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpUploading": "Uploading {filename}",
+  "@sftpUploading": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpEmptyDirectory": "Empty Directory",
+  "sftpRenameFailed": "Rename failed: {error}",
+  "@sftpRenameFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpDeleteFailed": "Delete failed: {error}",
+  "@sftpDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpCreateFailed": "Create failed: {error}",
+  "@sftpCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpChmodFailed": "chmod failed: {error}",
+  "@sftpChmodFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "sftpDownloadsCompleted": "{count} download(s) complete",
+  "@sftpDownloadsCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpConfirmDeleteSelected": "Delete {count} selected items? This cannot be undone.",
+  "@sftpConfirmDeleteSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpCreateFolderAction": "New Directory",
+  "sftpCreateFileAction": "New File",
+  "sftpUploadFileAction": "Upload File",
+  "sftpUploadFolderAction": "Upload folder",
+  "sftpConflictTitle": "{count} file(s) already exist",
+  "@sftpConflictTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpConflictBody": "Uploading will overwrite them. This cannot be undone.",
+  "sftpConflictOverwriteAll": "Overwrite all",
+  "sftpConflictSkipAll": "Skip existing",
+  "sftpConflictSkipped": "Skipped {count} existing file(s)",
+  "@sftpConflictSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiAssistant": "AI Assistant",
+  "aiMicUnavailableTitle": "Voice Input Unavailable",
+  "aiMicUnavailableContent": "Microphone permission not granted or device does not support speech recognition.\n\nGo to phone Settings → Apps → FlyTerm → Permissions, enable microphone, then reopen the app.",
+  "aiNoProvider": "No AI provider configured. Go to Settings → AI Providers to add one.",
+  "aiEmptyHint": "Describe the operation you want to perform, AI will generate a command for one-tap execution.\n\nExample: Find the process using the most memory",
+  "aiGoConfig": "Configure →",
+  "aiListeningHint": "Listening…",
+  "aiInputHint": "Describe operation or ask a question…",
+  "aiClearHistory": "Clear conversation",
+  "aiNewSession": "New session",
+  "aiMoreActions": "More actions",
+  "aiSessionHistory": "History",
+  "aiHistoryEmpty": "No archived sessions yet",
+  "aiHistorySearchHint": "Search titles",
+  "aiHistoryNoMatch": "No sessions match",
+  "aiHistoryQuotaHint": "Most recent {keep} per server; starred are kept beyond that.",
+  "@aiHistoryQuotaHint": {
+    "description": "Explains that older unstarred sessions are pruned, so sessions vanishing is a known rule rather than a bug.",
+    "placeholders": {
+      "keep": {
+        "type": "int"
+      }
+    }
+  },
+  "aiHistoryEvents": "{count} entries",
+  "@aiHistoryEvents": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiHistoryUntitled": "(untitled)",
+  "aiHistoryDeleteTitle": "Delete this session?",
+  "aiHistoryDelete": "Delete",
+  "aiCopyAction": "Copy",
+  "aiMessageCopied": "Copied",
+  "aiRetryAction": "Retry",
+  "aiEditAction": "Edit",
+  "aiExplainAction": "Explain",
+  "aiSaveAction": "Save",
+  "aiRunAction": "Run",
+  "aiCommandFailed": "Command failed",
+  "aiOutputLines": "{count} lines",
+  "@aiOutputLines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiGotIt": "Got it",
+  "favoritesTitle": "Favorites",
+  "addFavoriteTooltip": "Add Favorite",
+  "noFavorites": "No saved commands\nTap + to add",
+  "editFavoriteTitle": "Edit Favorite Command",
+  "addFavoriteTitle": "Add Favorite Command",
+  "favoriteName": "Name",
+  "favoriteNameHint": "e.g. Update System",
+  "favoriteCommand": "Command",
+  "favoriteCommandHint": "Supports template variables",
+  "favoriteRun": "Run",
+  "favoriteAiEnabled": "Let the assistant run this",
+  "favoriteAiEnabledHint": "The assistant will see this command's name and template",
+  "favoriteAiBudget": "{count} available to the assistant, about {tokens} tokens per request",
+  "@favoriteAiBudget": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "favoriteAiOverflow": "{count} are over the limit and will not be offered",
+  "@favoriteAiOverflow": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sftpDownloadDir": "Download Directory",
+  "sftpDownloadDirDownloads": "Downloads (public, visible in Files app)",
+  "sftpDownloadDirDocuments": "Documents",
+  "sftpDownloadDirCustom": "Custom Path",
+  "sftpCustomPathHint": "e.g. /storage/emulated/0/MyFolder",
+  "searchServers": "Search servers…",
+  "noSearchResults": "No matching servers",
+  "serverGroup": "Group (optional)",
+  "close": "Close",
+  "terminalTheme": "Terminal Theme",
+  "terminalThemeDefault": "Default Dark",
+  "terminalThemeDracula": "Dracula",
+  "terminalThemeSolarizedDark": "Solarized Dark",
+  "terminalThemeMonokai": "Monokai",
+  "terminalThemeSolarizedLight": "Solarized Light",
+  "terminalThemeNord": "Nord",
+  "terminalThemeGruvboxDark": "Gruvbox Dark",
+  "terminalThemeOneDark": "One Dark",
+  "terminalThemeTokyoNight": "Tokyo Night",
+  "cursorBlink": "Blinking Cursor",
+  "cursorBlinkSubtitle": "Blink the cursor when the terminal has focus",
+  "selectionColor": "Selection Color",
+  "selectionColorSubtitle": "Highlight color for selected text",
+  "keybarCustomize": "KeyBar Customization",
+  "keybarCustomizeSubtitle": "Reorder, edit, or add keys",
+  "fetSettingsTitle": "SFTP Toggle Button",
+  "fetSettingsSubtitle": "Floating button to switch terminal / SFTP view",
+  "fetSettingsShow": "Show toggle button",
+  "fetSettingsShowSubtitle": "Floating button on the right side of the terminal",
+  "fetSettingsAutoHide": "Auto-hide to edge",
+  "fetSettingsAutoHideSubtitle": "Collapses to a thin bar after 7 s of inactivity",
+  "fetSettingsOpacity": "Opacity",
+  "fetSettingsResetPosition": "Reset position",
+  "fetSettingsResetPositionSubtitle": "Return button to centre of screen",
+  "fetSettingsResetDone": "Toggle button position reset",
+  "sftpSwitchToSftp": "Switch to SFTP",
+  "sftpSwitchToTerminal": "Back to Terminal",
+  "sftpOnboardingHint": "Tap to switch SFTP/terminal, drag to reposition, fling right to hide",
+  "keybarLongPressEdit": "Edit",
+  "keybarLongPressDelete": "Delete",
+  "keybarEmptyHint": "Long-press a key or open Settings → KeyBar to add keys",
+  "keybarEditorTitle": "KeyBar Customization",
+  "keybarEditorAddTooltip": "Add new key",
+  "keybarEditorRestoreDefaults": "Restore defaults",
+  "keybarEditorConfirmRestoreTitle": "Restore default KeyBar?",
+  "keybarEditorConfirmRestoreBody": "All custom keys will be removed.",
+  "keybarEditorConfirmRestoreOk": "Restore",
+  "keybarEditorConfirmRestoreCancel": "Cancel",
+  "keybarEditItemTitle": "Edit Key",
+  "keybarEditItemNew": "New Key",
+  "keybarEditItemLabel": "Label",
+  "keybarEditItemSequence": "Sequence",
+  "keybarEditItemInsertSpecial": "Insert special key",
+  "keybarEditItemRepeatable": "Long-press auto-repeat",
+  "keybarEditItemSave": "Save",
+  "keybarEditItemValidationLabel": "Label cannot be empty",
+  "keybarEditItemValidationSequence": "Sequence cannot be empty",
+  "keybarSpecialPickerTitle": "Insert Special Key",
+  "keybarSpecialCategoryControl": "Control",
+  "keybarSpecialCategoryModifiers": "Modifiers",
+  "keybarSpecialCategoryArrows": "Arrows",
+  "keybarSpecialCategoryNav": "Navigation",
+  "keybarSpecialCategoryModifierCombos": "Modifier Combos",
+  "keybarSpecialCategoryFunction": "Function Keys",
+  "keybarSpecialCategoryCtrl": "Ctrl Combos",
+  "keybarEditItemSequenceHint": "Type text…",
+  "keybarEditItemSticky": "Sticky modifier (CTRL-style)",
+  "keybarEditItemStickyHint": "Toggles a transient flag instead of sending bytes; the next keypress is sent with Ctrl applied.",
+  "keybarCtrlNotApplicable": "CTRL doesn't apply to this key",
+  "keybarShiftNotApplicable": "SHIFT doesn't apply to this key",
+  "keybarEditorSectionKeyboardMode": "Keyboard Show",
+  "keybarEditorSectionLeftKeys": "Terminal Keys",
+  "keybarEditorSectionRightButtons": "Function Buttons",
+  "keybarRightButtonKeyboard": "Keyboard",
+  "keybarRightButtonFavorites": "Favorites",
+  "keybarRightButtonMicrophone": "Microphone",
+  "keybarRightButtonAi": "AI",
+  "keybarRightButtonAttachFile": "Attach",
+  "attachFileNoConnection": "Connection unavailable — reconnect and try again",
+  "attachFileNameTaken": "Too many files with that name — clean up first",
+  "attachFileFailed": "Upload failed: {error}",
+  "@attachFileFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "attachFileRenamed": "Name had special characters — renamed to {name}",
+  "@attachFileRenamed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentForwarding": "SSH Agent Forwarding",
+  "agentForwardingDesc": "Allow remote host to use local keys for next-hop auth",
+  "importConfigPreviewSkills": "AI skills",
+  "exportConfigSubject": "FlyTerm config backup",
+  "exportConfigDone": "Exported: {path}",
+  "@exportConfigDone": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "exportConfigFailed": "Export failed: {error}",
+  "@exportConfigFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigFailed": "Import failed: {error}",
+  "@importConfigFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigDone": "Imported {count} items",
+  "@importConfigDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigEmpty": "(empty config)",
+  "exportConfigIncludeAi": "Include AI provider config",
+  "exportConfigIncludeAiDesc": "Turn off to exclude provider config (API keys are never backed up)",
+  "exportConfigIncludeKnowledge": "Include AI knowledge & notes",
+  "exportConfigIncludeKnowledgeDesc": "Skill library and per-machine agent notes. May be large",
+  "importConfigKeepAppearance": "Keep my current appearance",
+  "importConfigKeepAppearanceDesc": "Do not overwrite theme, font, or KeyBar layout",
+  "importConfigPreviewSshKeysNotIncluded": "SSH private keys are not in the backup — re-import them after this to connect with those keys",
+  "exportConfigCountServers": "{count} servers",
+  "@exportConfigCountServers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountKeys": "{count} keys",
+  "@exportConfigCountKeys": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountFavCmds": "{count} favorites",
+  "@exportConfigCountFavCmds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountAi": "{count} AI configs",
+  "@exportConfigCountAi": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountTunnels": "{count} tunnels",
+  "@exportConfigCountTunnels": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountKnownHosts": "{count} known hosts",
+  "@exportConfigCountKnownHosts": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountNotes": "{count} machine notes",
+  "@exportConfigCountNotes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfigCountSkills": "{count} AI skills",
+  "@exportConfigCountSkills": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "exportConfig": "Export Config",
+  "exportConfigSubtitle": "Save servers & keys to a JSON file",
+  "importConfig": "Import Config",
+  "importConfigSubtitle": "Restore from a previously exported JSON",
+  "exportConfigSendToDevice": "Send to another device",
+  "exportConfigSaveLocal": "Save to downloads",
+  "exportConfigHasAiKeys": "⚠ AI API keys are NOT exported — re-enter them after importing",
+  "importConfigPreviewKnownHosts": "Known Hosts",
+  "importConfigPreviewKeybarWarning": "⚠ The on-screen key bar will be overwritten",
+  "importConfigPreviewAiKeysNotIncluded": "⚠ AI API keys are not included — re-enter them after importing",
+  "exportConfigNeverBackedUp": "Never backed up",
+  "exportConfigLastBackup": "Last backup: {timeAgo}",
+  "@exportConfigLastBackup": {
+    "placeholders": {
+      "timeAgo": {
+        "type": "String"
+      }
+    }
+  },
+  "importConfigPreviewTitle": "Import Preview",
+  "importConfigPreviewServers": "Servers",
+  "importConfigPreviewKeys": "SSH Keys",
+  "importConfigPreviewFavCmds": "Favorites",
+  "importConfigPreviewAiProviders": "AI Configs",
+  "importConfigPreviewTunnels": "Tunnels",
+  "importConfigPreviewNew": "{count} (all new)",
+  "@importConfigPreviewNew": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importConfigPreviewWithSkip": "{newCount} new, {skipCount} duplicate(s) skipped",
+  "@importConfigPreviewWithSkip": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "skipCount": {
+        "type": "int"
+      }
+    }
+  },
+  "importConfigPreviewSettingsWarning": "⚠ Terminal settings (theme, font size) will be overwritten",
+  "importConfigConfirm": "Import",
+  "importConfigSuccessWithSkip": "Imported {newCount} items, {skipCount} duplicate(s) skipped",
+  "@importConfigSuccessWithSkip": {
+    "placeholders": {
+      "newCount": {
+        "type": "int"
+      },
+      "skipCount": {
+        "type": "int"
+      }
+    }
+  },
+  "sessionSummary": "Session Summary",
+  "sessionSummaryPrompt": "Please summarize what was done in this terminal session: key commands run, what succeeded or failed, and the current state.",
+  "sftpSearchHint": "Search files…",
+  "sftpSortByName": "Sort by name",
+  "sftpSortBySize": "Sort by size",
+  "sftpSortByTime": "Sort by time",
+  "sftpSortAscending": "Ascending",
+  "sftpSortDescending": "Descending",
+  "sftpSortToggleToDesc": "Switch to descending",
+  "sftpSortToggleToAsc": "Switch to ascending",
+  "sftpSortDirectionLabel": "Order",
+  "sftpSortTooltip": "Sort",
+  "sftpResuming": "Resuming {filename}",
+  "@sftpResuming": {
+    "placeholders": {
+      "filename": {
+        "type": "String"
+      }
+    }
+  },
+  "tabRefresh": "Refresh",
+  "version": "Version",
+  "versionSubtitleDebugActive": "{version} · Debug panel active (tap repeatedly to toggle)",
+  "@versionSubtitleDebugActive": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "debugOverlayEnabled": "Debug panel enabled",
+  "debugOverlayDisabled": "Debug panel disabled",
+  "debugOverlayTapsRemaining": "Tap {count} more to toggle debug panel",
+  "@debugOverlayTapsRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "keyboardTrigger": "Keyboard Trigger",
+  "keyboardTriggerSingleTap": "Single Tap",
+  "keyboardTriggerSingleTapDesc": "Tap the terminal area to open keyboard",
+  "keyboardTriggerDoubleTap": "Double Tap",
+  "keyboardTriggerDoubleTapDesc": "Double-tap the terminal area to open keyboard",
+  "keyboardTriggerIconButton": "Icon Button",
+  "keyboardTriggerIconButtonDesc": "Tap toolbar keyboard icon to open keyboard",
+  "selectionCopy": "Copy",
+  "selectionCopied": "Copied {count} characters",
+  "@selectionCopied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "selectionExpired": "Selection is no longer valid — select again",
+  "selectionSelect": "Select",
+  "selectionPaste": "Paste",
+  "pasteClipboardEmpty": "Clipboard is empty",
+  "pasteNotConnected": "Not connected — cannot paste",
+  "pasteTooLarge": "Clipboard content too large ({size}) — paste cancelled",
+  "@pasteTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "fontSection": "Terminal Font",
+  "fontSize": "Size",
+  "codeFont": "Code Font",
+  "codeFontDesc": "Letters, digits, and symbols",
+  "fontFamilySystem": "System default",
+  "lineHeight": "Line Spacing",
+  "lineHeightDesc": "Space between lines (larger = more breathing room)",
+  "serverTypeSshMosh": "SSH / Mosh",
+  "serverTypeRemote": "Remote",
+  "serverTypeLocal": "Local",
+  "localShellUnsupported": "Local terminal is not available on this platform — connect to a remote server instead.",
+  "ungrouped": "Other",
+  "consentTitle": "Welcome to FlyTerm",
+  "consentIntro": "Before using the App, please read and agree to:",
+  "consentPrivacyLink": "Privacy Policy",
+  "consentTosLink": "Terms of Service",
+  "consentCrashOptIn": "Send crash reports to help fix bugs (toggle in Settings)",
+  "consentAcceptButton": "Agree and Continue",
+  "consentDeclineButton": "Decline and Exit",
+  "privacyPolicyTitle": "Privacy Policy",
+  "termsOfServiceTitle": "Terms of Service",
+  "privacyPreferences": "Privacy Preferences",
+  "privacyCrashReportingToggle": "Crash Reporting",
+  "privacyCrashReportingDesc": "Upload crash stacks to help fix bugs (scrubbed, no host info)",
+  "privacyAnalyticsToggle": "Usage Analytics",
+  "privacyAnalyticsDesc": "Upload key business events for product improvement",
+  "privacyViewPolicy": "View Privacy Policy",
+  "privacyViewToS": "View Terms of Service",
+  "privacyRevokeButton": "Revoke Consent and Exit App",
+  "privacyRevokeConfirmTitle": "Revoke Consent?",
+  "privacyRevokeConfirmDesc": "Revoking will exit the app; next launch requires re-consent.",
+  "privacyRevokeConfirmYes": "Revoke and Exit",
+  "privacyRevokeConfirmNo": "Cancel",
+  "consentSubtitle": "A modern mobile terminal that respects your privacy.",
+  "consentHighlightKeysTitle": "Your keys stay on device",
+  "consentHighlightKeysDesc": "Encrypted in Keychain / Keystore, never uploaded",
+  "consentHighlightCrashTitle": "Anonymous crash reports",
+  "consentHighlightCrashDesc": "Scrubbed — no host or account info",
+  "consentHighlightControlTitle": "Full control anytime",
+  "consentHighlightControlDesc": "Toggle off crash and analytics in Settings",
+  "consentAgreeBoilerplate": "By continuing you agree to our",
+  "consentAgreeBoilerplateAnd": "and",
+  "consentDeclineHint": "Don't agree?",
+  "consentDeclineExit": "Exit",
+  "privacySectionDocuments": "Documents",
+  "privacySectionDangerZone": "Danger Zone",
+  "privacyRevokeCardDesc": "Revoking exits the app; next launch requires re-consent",
+  "paywallTitle": "FlyTerm Pro",
+  "paywallSubtitle": "One-time purchase, unlock all Pro features forever",
+  "paywallFeatureQuic": "QUIC protocol — low latency + roaming",
+  "paywallFeatureAi": "AI assist — voice input & error analysis",
+  "paywallFeatureTunnel": "Port forwarding / SFTP / Mosh",
+  "paywallFeatureFutureUpdates": "All future Pro updates included",
+  "paywallPurchaseButton": "Purchase {price}",
+  "@paywallPurchaseButton": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallRestoreButton": "Already purchased? Restore",
+  "paywallContinueLater": "Maybe later",
+  "paywallLoadingPrice": "Loading price…",
+  "paywallUnavailable": "Store unavailable, please try later",
+  "paywallPurchasePending": "Confirming payment…",
+  "paywallPurchaseError": "Purchase failed: {error}",
+  "@paywallPurchaseError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "paywallRestoreNoneFound": "No purchase found for this account",
+  "paywallRestoreSuccess": "Pro unlocked",
+  "proStatusPro": "FlyTerm Pro · Active",
+  "proStatusFree": "Free",
+  "proStatusPurchasedAt": "Purchased on {date}",
+  "@proStatusPurchasedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "proStatusUpgrade": "Upgrade to Pro",
+  "proStatusRestore": "Restore Purchase",
+  "settingsOpenSourceLicenses": "Open Source Licenses",
+  "@settingsOpenSourceLicenses": {
+    "description": "Settings entry to view all OSS license texts"
+  },
+  "settingsOpenSourceLicensesSubtitle": "Third-party libraries and their licenses",
+  "updatePromptTitleOptional": "Update Available",
+  "updatePromptTitleMandatory": "Required Update",
+  "updatePromptBody": "Version {latest} is available (current: {current}).",
+  "@updatePromptBody": {
+    "placeholders": {
+      "latest": {},
+      "current": {}
+    }
+  },
+  "updatePromptReleaseNotes": "RELEASE NOTES",
+  "updatePromptUpdate": "Update",
+  "updatePromptLater": "Later",
+  "agentToolRunning": "Running",
+  "agentToolDone": "Done",
+  "agentToolFailed": "Failed",
+  "agentToolRejected": "Rejected",
+  "agentToolAwaiting": "Awaiting approval",
+  "agentToolExpand": "Show output",
+  "agentToolCollapse": "Hide",
+  "agentExitCode": "exit {code}",
+  "@agentExitCode": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "agentApprovalTitle": "Needs your approval",
+  "agentAllowOnce": "Allow once",
+  "agentSilenceInSession": "Don't ask again this turn",
+  "@agentSilenceInSession": {
+    "description": "Button on the credential-deny approval card in bypass mode: allow and stop asking for this exact command for the rest of the session"
+  },
+  "@agentRuleWillBe": {
+    "placeholders": {
+      "rule": {
+        "type": "String"
+      }
+    }
+  },
+  "agentDenyWarning": "This command touches credential files. Allowing it sends their contents to {provider}.",
+  "@agentDenyWarning": {
+    "placeholders": {
+      "provider": {
+        "type": "String"
+      }
+    }
+  },
+  "agentReasonMetachar": "Command contains shell metacharacters — must be confirmed individually",
+  "agentReasonNoRule": "No matching allow rule",
+  "agentReasonFileWrite": "Writes to a file — always needs confirmation",
+  "agentInstructionsTitle": "AI assistant notes",
+  "agentInstructionsEntry": "Custom instructions",
+  "agentInstructionsEntrySet": "Set",
+  "agentInstructionsEntryEmpty": "Not set",
+  "agentInstructionsHint": "Tell the AI how you want it to answer. For example: keep it short; lead with the conclusion; answer in English.\n\nThese notes apply to every server. Anything specific to one machine (uses podman, logs live in /data/logs) belongs in that server's notes below, not here.",
+  "agentInstructionsLocalLabel": "Global notes (shared by all servers, this phone only)",
+  "agentInstructionsSaved": "Saved",
+  "agentInstructionsRemaining": "{n} bytes left",
+  "@agentInstructionsRemaining": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentInstructionsTooLong": "Over the {max} byte limit; the excess will not be sent to the AI",
+  "@agentInstructionsTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsEntry": "Skills",
+  "agentSkillsEntryEmpty": "None yet",
+  "agentSkillsEntryCount": "{count} saved",
+  "@agentSkillsEntryCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsTitle": "Skills",
+  "agentSkillsHint": "Procedures and tool notes the assistant can pull in when relevant. Only the one-line description of each rides along in every request.",
+  "agentSkillsBudget": "{count} skills, about {tokens} tokens per request",
+  "@agentSkillsBudget": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsOverflow": "{count} skills are past the index limit — the model needs to search for them",
+  "@agentSkillsOverflow": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsEmpty": "No skills yet. Ask the assistant to save one after it solves something, or import from a server or file.",
+  "agentSkillsImportFromServer": "Import from this server",
+  "agentSkillsImportFromFile": "Import from a file",
+  "agentSkillsImportFromFolder": "Import a skill folder",
+  "agentSkillsImportFromArchive": "Import a .zip package",
+  "skillImportAssetCount": "{n} attached file(s)",
+  "@skillImportAssetCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsCreateManually": "Create manually",
+  "agentSkillsImportTitle": "Import skills",
+  "agentSkillsImportNone": "No skills found in ~/.flyterm/skills on this server.",
+  "agentSkillsImportSkipped": "{count} file(s) could not be parsed and were skipped",
+  "@agentSkillsImportSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillsImportConfirm": "Import selected",
+  "agentSkillsImportNeedsDescription": "Add a one-line description",
+  "agentSkillsConflictTitle": "A skill named \"{name}\" already exists",
+  "@agentSkillsConflictTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentSkillsConflictOverwrite": "Overwrite",
+  "agentSkillsConflictKeepBoth": "Keep both",
+  "agentSkillsConflictSkip": "Skip",
+  "agentSkillsSourceAi": "Written by assistant",
+  "agentSkillsSourceRemote": "From server",
+  "agentSkillsSourceFile": "From file",
+  "agentSkillsSourceManual": "Created manually",
+  "agentKnowledgeCaptureTitle": "Offer to save what was learned",
+  "agentKnowledgeCaptureDesc": "Turns a finished session into a card — save it as a skill or into this machine's notes",
+  "agentSkillDetailTitle": "Skill",
+  "agentSkillCreateTitle": "New skill",
+  "agentSkillNameLabel": "Name",
+  "agentSkillDescriptionLabel": "Description (shown in every request)",
+  "agentSkillBodyLabel": "Body",
+  "agentSkillAssetsLabel": "Attached files (installed on the server by install_skill_assets)",
+  "agentSkillAssetExecutable": "Executable — marked +x when installed",
+  "agentSkillAssetData": "Data file",
+  "skillAssetAdd": "Add file",
+  "skillAssetEdit": "Edit file",
+  "skillAssetEmptyHint": "No attached files. Add a script or template if the steps would be identical every time.",
+  "skillAssetPathLabel": "Path inside the skill folder",
+  "skillAssetPathHelper": "Relative, e.g. scripts/check.sh — no leading / and no ..",
+  "skillAssetPathInvalid": "Must be a relative path with no `..` or backslashes",
+  "skillAssetExecutableToggle": "Executable",
+  "skillAssetExecutableHint": "Marked +x on the server when installed",
+  "skillAssetContentLabel": "File contents",
+  "skillAssetTotalTooBig": "These files total {bytes} bytes; the limit is {limit}.",
+  "@skillAssetTotalTooBig": {
+    "placeholders": {
+      "bytes": {
+        "type": "int"
+      },
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillDelete": "Delete skill",
+  "agentSkillDeleteConfirm": "Delete this skill? This cannot be undone.",
+  "agentSkillSaved": "Saved",
+  "agentSkillLoadedInPanel": "Used skill: {name}",
+  "@agentSkillLoadedInPanel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentSkillSaveCardTitle": "Save skill \"{name}\"?",
+  "@agentSkillSaveCardTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentSkillUpdateCardTitle": "Update skill \"{name}\"?",
+  "@agentSkillUpdateCardTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentSkillNeverUsed": "Never used",
+  "agentSkillUsedDaysAgo": "Unused for {days} days",
+  "@agentSkillUsedDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillUsedToday": "Used today",
+  "agentSkillHits": "Used {n} times",
+  "@agentSkillHits": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentSkillNotLoaded": "Not indexed · needs a search",
+  "agentSkillNotLoadedHint": "Skills past the index limit don't appear directly in the system prompt — the model has to call search_skills first to find them, costing an extra tool round-trip. To make one visible at a glance, free up an index slot (disable or delete ones you don't need) instead of deleting these.",
+  "agentBuiltinSkillsSection": "Built-in",
+  "agentBuiltinSkillsHint": "Ship with the app. You can turn one off, but not delete or edit it.",
+  "agentBuiltinSkillBadge": "Built-in",
+  "agentBuiltinSkillTitleTroubleshoot": "Troubleshoot",
+  "agentBuiltinSkillDescTroubleshoot": "When something is broken: find the cause before changing anything, verify independently.",
+  "agentBuiltinSkillTitlePlanChange": "Plan a change",
+  "agentBuiltinSkillDescPlanChange": "For multi-step work: clarify the requirement, get the plan approved, change one step at a time.",
+  "agentBuiltinSkillTitleSkillCreator": "Write a skill",
+  "agentBuiltinSkillDescSkillCreator": "When writing a skill: phrase the description as a trigger, write the body as steps, attach scripts instead of inlining them.",
+  "agentAddToPlan": "Add to plan",
+  "agentAddToPlanHint": "Queue it up and approve it together with the other changes later",
+  "agentProposalTitle": "Apply these changes?",
+  "agentProposalCount": "{n} pending",
+  "@agentProposalCount": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentProposalApprove": "Apply all",
+  "agentProposalDiscard": "Discard",
+  "agentProposalNote": "These run one after another. If one fails it stops there and the rest stay queued for you to decide.",
+  "agentKnowledgeTitle": "Save what was learned here?",
+  "agentKnowledgeTargetSkill": "Skill",
+  "agentKnowledgeTargetNotes": "This machine's notes",
+  "agentKnowledgeSave": "Save",
+  "agentKnowledgeUpdate": "Update {name}",
+  "@agentKnowledgeUpdate": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentKnowledgeDismiss": "Dismiss",
+  "agentKnowledgeSaved": "Saved",
+  "agentKnowledgeExpand": "Show full text",
+  "agentKnowledgeCollapse": "Collapse",
+  "agentKnowledgeNotesFull": "This machine's notes are full — trim {bytes} more bytes",
+  "@agentKnowledgeNotesFull": {
+    "placeholders": {
+      "bytes": {
+        "type": "int"
+      }
+    }
+  },
+  "agentKnowledgeSwitchHint": "Tap the label to change where it goes",
+  "agentAdvancedRules": "Advanced: auto-run list",
+  "@agentModeFollowGlobal": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "agentUndo": "Undo",
+  "agentUndone": "Undone",
+  "agentUndoBackupMissing": "Backup is gone; cannot undo",
+  "agentToolSuperseded": "Speculative result discarded; this command was re-run",
+  "@agentToolSuperseded": {
+    "description": "Note shown on a discarded speculative tool card"
+  },
+  "agentDiffEmpty": "(empty)",
+  "agentDiffAtLine": "{path} · line {line}",
+  "@agentDiffAtLine": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      },
+      "line": {
+        "type": "int"
+      }
+    }
+  },
+  "agentDiffExpand": "Show full text",
+  "agentDiffCollapse": "Hide",
+  "agentRejectReasonHint": "(optional) tell the AI why",
+  "agentStop": "Stop",
+  "agentThinking": "Thinking…",
+  "agentRateLimited": "Rate limited — retrying in {seconds}s",
+  "@agentRateLimited": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRunning": "Running…",
+  "agentThinkingFor": "Thinking {seconds}s",
+  "@agentThinkingFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentRunningFor": "Running {seconds}s",
+  "@agentRunningFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentExecutingMany": "Running {count} commands {seconds}s",
+  "@agentExecutingMany": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentAwaitingYou": "Waiting for you",
+  "agentAwaitingAnswer": "Waiting for your answer",
+  "agentRunningCalls": "{count} calls so far",
+  "@agentRunningCalls": {
+    "description": "Tool calls made so far this run, shown on the running bar. Only shown when > 0",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentAskOther": "Type your own answer…",
+  "agentAskUnanswered": "not answered",
+  "mentionServerColonHint": "Type : to browse files on this host",
+  "mentionUnknownServer": "No such host: {name}",
+  "@mentionUnknownServer": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentTurnSummary": "{duration} · {calls} calls · {tokens} token",
+  "@agentTurnSummary": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      },
+      "calls": {
+        "type": "int"
+      },
+      "tokens": {
+        "type": "String"
+      }
+    }
+  },
+  "agentTurnSummaryTooltip": "Includes time the app spent in the background",
+  "agentStoppedMaxTurns": "Reached the {n}-turn limit. Continue?",
+  "@agentStoppedMaxTurns": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentStoppedTokenBudget": "Context is near the limit. Continue?",
+  "agentStoppedCancelled": "Stopped. Commands already sent were not undone.",
+  "agentStoppedInvalidArgs": "The model kept sending invalid tool arguments. Aborted.",
+  "agentContinue": "Continue",
+  "agentRetry": "Retry",
+  "agentInputHint": "Describe the problem · @ to reference a host · / for skills",
+  "attachPick": "Add image or file",
+  "attachRemove": "Remove",
+  "attachUnsupportedVision": "This model does not support image input",
+  "attachTryAnyway": "Try anyway",
+  "attachRejectBinary": "Only images and text files are supported",
+  "attachRejectEmpty": "That file is empty",
+  "attachTooLarge": "Image too large ({size}) — crop it and try again",
+  "@attachTooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachTextTruncated": "(truncated, original size {size})",
+  "@attachTextTruncated": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "attachMissing": "Image no longer available",
+  "attachSkippedOnSend": "{count} attachment(s) unavailable, not sent this turn",
+  "@attachSkippedOnSend": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "attachSaveFailed": "Could not save the attachment",
+  "attachUnreadable": "Could not read that file. Files in cloud storage need to be downloaded to this device first.",
+  "attachContextOverflow": "Context exceeds the model limit; images account for about {tokens} tokens. Start a new session or remove images.",
+  "@attachContextOverflow": {
+    "placeholders": {
+      "tokens": {
+        "type": "int"
+      }
+    }
+  },
+  "mentionFilesUnavailable": "File browsing unavailable",
+  "mentionNeedAbsolutePath": "Use an absolute path (starting with /)",
+  "mentionDirLoadFailed": "Could not read directory: {error}",
+  "@mentionDirLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mentionMoreEntries": "{count} more — keep typing to narrow",
+  "@mentionMoreEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentPendingWithdrawHint": "Queued — tap to withdraw",
+  "agentUsage": "in {input} · out {output}",
+  "@agentUsage": {
+    "placeholders": {
+      "input": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "agentUsageCumulative": "{session} · total {total}",
+  "@agentUsageCumulative": {
+    "description": "Appended to the per-session usage line. 'total' is the cross-session cumulative input+output token count.",
+    "placeholders": {
+      "session": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "agentUsageCached": "in {input} (cached {cached}) · out {output}",
+  "@agentUsageCached": {
+    "placeholders": {
+      "input": {
+        "type": "String"
+      },
+      "cached": {
+        "type": "String"
+      },
+      "output": {
+        "type": "String"
+      }
+    }
+  },
+  "agentNoCredentials": "No saved credentials for this server — agent mode unavailable",
+  "agentGoToServerSettings": "Open settings",
+  "agentNoToolSupport": "This model does not support tool calling",
+  "agentSettingsTitle": "AI Agent",
+  "agentModeBypassWarning": "The AI will run any command on this server without asking, and can also change FlyTerm's own settings. Commands touching credential files, and operations that cannot be undone, still prompt.",
+  "agentRulesTitle": "Auto-allowed commands",
+  "agentRulesBuiltinGroup": "Defaults",
+  "agentRulesUserGroup": "Approved by you",
+  "agentRulesEmpty": "You haven't approved any rules yet",
+  "agentRulesFirstReview": "The AI runs these without asking. Take a look — you can turn off any of them.",
+  "agentRulesGotIt": "Got it",
+  "agentRulesGoReview": "Review the allowlist",
+  "agentMemorySection": "Assistant memory",
+  "agentAllowlistEntry": "Auto-run list",
+  "agentAllowlistSubtitleEnabled": "{enabled} of {total} categories allowed",
+  "@agentAllowlistSubtitleEnabled": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "agentToolTierGroup": "Tool tier",
+  "agentToolTierAuto": "Auto",
+  "agentToolTierLean": "Lean",
+  "agentToolTierFull": "Full",
+  "agentToolTierAutoDesc": "Auto: full tools for cloud models, lean (2 tools) for local models like Ollama",
+  "agentToolTierLeanDesc": "Lean: only bash and read_file — best for small/local models",
+  "agentToolTierFullDesc": "Full: also write_file, edit_file and set_plan — best for capable cloud models",
+  "agentBannerAskTitle": "Currently: it will ask me first",
+  "@agentBannerAskSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentBannerBypassTitle": "Currently: it won't ask you",
+  "agentBannerPlanTitle": "Now: plan first",
+  "agentCapabilityAutoLabel": "Runs automatically",
+  "agentCapabilityAutoValue": "View logs, check processes, read files, inspect containers",
+  "agentCapabilityAskLabel": "Needs your confirmation",
+  "agentCapabilityAskValue": "Editing files, restarting services, deleting things, any command with a pipe",
+  "agentRuleGroupServiceTitle": "Service status & logs",
+  "agentRuleGroupServiceSubtitle": "Whether a service is running, and its logs",
+  "agentRuleGroupSystemTitle": "System & processes",
+  "agentRuleGroupSystemSubtitle": "What's running, how much disk/memory is left",
+  "agentRuleGroupNetworkTitle": "Network listeners",
+  "agentRuleGroupNetworkSubtitle": "Which ports are listening, what's connected",
+  "agentRuleGroupFilesTitle": "File contents",
+  "agentRuleGroupFilesSubtitle": "Sends file contents to the AI",
+  "agentRuleGroupFilesWarning": "Private keys, .env, .kube/config and similar files still prompt for approval separately, even with this group on.",
+  "agentRuleGroupDockerTitle": "Docker containers",
+  "agentRuleGroupDockerSubtitle": "Container status and logs",
+  "agentRuleGroupK8sTitle": "Kubernetes",
+  "agentRuleGroupK8sSubtitle": "Cluster resources and logs",
+  "agentRuleGroupOtherTitle": "Other",
+  "agentPanelBypassActiveTooltip": "\"Allow everything\" is on — the agent won't ask before running commands",
+  "agentInstructionsExamplesLabel": "Try one of these:",
+  "agentInstructionsExample1": "Keep answers short, no padding",
+  "agentInstructionsExample2": "Lead with the conclusion",
+  "agentInstructionsExample3": "Answer in English",
+  "agentServerNotesEntry": "This machine's notes",
+  "agentServerNotesLines": "{n} lines",
+  "@agentServerNotesLines": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentServerNotesNone": "Not created",
+  "agentServerNotesTitle": "This machine's notes",
+  "agentServerNotesHint": "Conventions and quirks of this box — \"uses podman, not docker\", \"logs live on /data\". Sent to the model on every turn, so keep it short.",
+  "agentServerNotesEmpty": "No notes yet",
+  "agentServerNotesBytes": "{used} / {max} bytes",
+  "@agentServerNotesBytes": {
+    "placeholders": {
+      "used": {
+        "type": "int"
+      },
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "agentServerNotesSave": "Save",
+  "agentServerNotesTooLong": "{n} bytes over the limit. Trim it down.",
+  "@agentServerNotesTooLong": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentServerNotesOverviewEntry": "Machine notes",
+  "agentServerNotesOverviewSubtitle": "{n} machines",
+  "@agentServerNotesOverviewSubtitle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentServerNotesOverviewEmpty": "No machine notes yet. They build up as you work, or you can write them by hand from a server's settings.",
+  "agentServerNotesUpdatedAt": "Last updated: {time}",
+  "@agentServerNotesUpdatedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "agentServerNotesDelete": "Delete these notes",
+  "agentServerNotesForMachine": "Machine notes: {name}",
+  "@agentServerNotesForMachine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "agentToolRunningFor": "running {seconds}s",
+  "@agentToolRunningFor": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "agentToolTook": "took {duration}",
+  "@agentToolTook": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobRunning": "running for {elapsed}",
+  "@agentJobRunning": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobFinished": "finished · exit {code}",
+  "@agentJobFinished": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobKilling": "stopping…",
+  "agentJobSinceStart": "{elapsed} since start",
+  "@agentJobSinceStart": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      }
+    }
+  },
+  "agentJobCheckedJustNow": "just checked",
+  "agentJobCheckedMinutes": "checked {n}m ago",
+  "@agentJobCheckedMinutes": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobCheckedHours": "checked {n}h ago",
+  "@agentJobCheckedHours": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobCheckedDays": "checked {n}d ago",
+  "@agentJobCheckedDays": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobsBarCount": "{count} background jobs",
+  "@agentJobsBarCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentJobStop": "Stop",
+  "transferDownloading": "downloading",
+  "transferUploading": "uploading",
+  "transferRelayDownloading": "fetching from {from}",
+  "@transferRelayDownloading": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      }
+    }
+  },
+  "transferRelayUploading": "sending to {to}",
+  "@transferRelayUploading": {
+    "placeholders": {
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "transferDone": "Done",
+  "transferCancelled": "Cancelled",
+  "transferFailed": "failed",
+  "transferInterrupted": "interrupted",
+  "transferCancel": "Cancel",
+  "transferOpen": "Open",
+  "transferLetAiRead": "Let AI read it",
+  "transferShare": "Share",
+  "transferCredentialWarning": "Credential file — its contents will not be sent to the AI",
+  "transferBackupKept": "Previous file kept at {path}",
+  "@transferBackupKept": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "agentCompacted": "compacted {count} earlier messages",
+  "@agentCompacted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentTruncated": "{count} earlier entries omitted",
+  "@agentTruncated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentToolOutputLines": "{count} lines",
+  "@agentToolOutputLines": {
+    "description": "Output line count label on the dense row",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentPlanUpdatedCollapsed": "Plan updated ({count} steps)",
+  "@agentPlanUpdatedCollapsed": {
+    "description": "Collapsed form of a plan checklist superseded by a later one",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentKnowledgeResolved": "Knowledge proposal · resolved",
+  "@agentKnowledgeResolved": {
+    "description": "Dense form of the knowledge proposal card once all candidates are resolved"
+  },
+  "agentExportMetrics": "Export timing metrics",
+  "@agentExportMetrics": {
+    "description": "Dev-mode button that exports per-turn metrics as JSONL"
+  },
+  "batchApprovalTitle": "Needs your approval",
+  "batchApprovalCount": "{count} calls",
+  "@batchApprovalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "batchApprovalCurrentSession": "current session",
+  "batchApprovalApproveAll": "Approve all",
+  "batchApprovalDiscard": "Cancel",
+  "agentInterruptedTitle": "Last session was interrupted",
+  "agentInterruptedRunning": "Running at the time:\n{calls}",
+  "@agentInterruptedRunning": {
+    "placeholders": {
+      "calls": {
+        "type": "String"
+      }
+    }
+  },
+  "aiSwitchModel": "Switch model",
+  "aiModelNoToolSupport": "No tool-calling support",
+  "aiModelNoApiKey": "No API key configured",
+  "aiModelLeanTools": "Reduced tool set — no file transfer",
+  "aiExportSession": "Export session",
+  "aiExportPreviewTitle": "Export preview",
+  "aiExportRedacted": "{count} secret(s) redacted",
+  "@aiExportRedacted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "aiExportShare": "Share",
+  "aiExportEmpty": "Nothing to export in this session yet",
+  "agentSupersededCollapsed": "Resent — {count} item(s) collapsed",
+  "@agentSupersededCollapsed": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "agentInterruptedResume": "Continue",
+  "navAI": "AI",
+  "navServers": "Servers",
+  "navSettings": "Settings",
+  "aiGlobalEmptyTitle": "How can I help?",
+  "aiGlobalSuggest1": "Explain this error",
+  "aiGlobalSuggest2": "Write a shell command",
+  "aiGlobalSuggest3": "Explain a config file",
+  "aiGlobalClearHistory": "Clear history",
+  "aiRunOnServer": "Run on server…",
+  "aiGlobalAgentEmptyTitle": "What can I do for you?",
+  "aiGlobalAgentSuggest1": "Which machine is running out of disk",
+  "aiGlobalAgentSuggest2": "Check load on all machines",
+  "aiGlobalAgentSuggest3": "Look for nginx errors",
+  "aiGlobalAgentSuggest4": "Make the terminal font bigger",
+  "aiHomeRecent": "Pick up where you left off",
+  "aiHomeMachines": "Machines",
+  "aiHomeOrAsk": "Or just ask",
+  "aiHomeMoreMachines": "+{count}",
+  "@aiHomeMoreMachines": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "relativeTimeJustNow": "just now",
+  "aiHomeSuggestDisk": "Check disk on {machine}",
+  "@aiHomeSuggestDisk": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "aiHomeSuggestLoad": "Check load on {machine}",
+  "@aiHomeSuggestLoad": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "aiHomeSuggestLogs": "Check logs on {machine}",
+  "@aiHomeSuggestLogs": {
+    "placeholders": {
+      "machine": {
+        "type": "String"
+      }
+    }
+  },
+  "serversScanJobs": "Scan for background jobs",
+  "jobsRunningBadge": "{count, plural, =1{1 job running} other{{count} jobs running}}",
+  "@jobsRunningBadge": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importPasteTitle": "Paste to import",
+  "importPasteHint": "Paste an ssh config block or a single ssh command",
+  "importPasteAction": "Detect",
+  "importParsedTitle": "Detected",
+  "importNotRecognized": "No server details found",
+  "importFormatExamples": "Supported formats:\nssh -p 2222 root@example.com\nHost web\n  HostName 10.0.0.5",
+  "importTryAi": "Try with AI",
+  "importAiFailed": "AI could not parse it either — please fill it in manually",
+  "importStrippedKey": "A private key in the pasted text was ignored and never sent anywhere",
+  "importStrippedPassword": "A password line in the pasted text was ignored",
+  "importSawInclude": "Files referenced by Include were not read",
+  "importNeedsManualKey": "This host uses key authentication — pick a key manually",
+  "importPickHost": "Several hosts found — pick one to import",
+  "importPickServerForTunnel": "Which server should this forward belong to?",
+  "importApplied": "Filled into the form — review and save",
+  "appControlSection": "App control",
+  "appChangeBarLabel": "{count, plural, =1{1 app setting changed} other{{count} app settings changed}}",
+  "@appChangeBarLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeUndo": "Undo",
+  "appChangeIrreversible": "Includes changes that cannot be undone",
+  "appChangeCardTitle": "{count, plural, =1{AI changed 1 app setting} other{AI changed {count} app settings}}",
+  "@appChangeCardTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeMore": "{count} more…",
+  "@appChangeMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "appChangeUndone": "Undone",
+  "appChangeRestoredNote": "These app changes came from an earlier session and can no longer be undone",
+  "appChangeOn": "On",
+  "appChangeOff": "Off",
+  "appChangeKindServer": "Server",
+  "appChangeKindTunnel": "Port forward",
+  "appChangeKindKey": "Key",
+  "appChangeKindSession": "Session",
+  "appChangeKindLayout": "Split layout",
+  "appChangeFieldFontFamily": "Terminal font",
+  "appChangeFieldLineHeight": "Line height",
+  "jobBoardTitle": "Background Jobs",
+  "jobBoardNoServers": "No servers yet",
+  "jobBoardNoJobs": "No background jobs",
+  "jobBoardScanFailed": "Scan failed",
+  "jobBoardRetry": "Retry",
+  "jobBoardSkippedEntries": "{count} entries not recognized",
+  "@jobBoardSkippedEntries": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "jobBoardRunning": "running",
+  "jobBoardExitCode": "exit code {code}",
+  "@jobBoardExitCode": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardLogTimeUnknown": "log time unknown",
+  "jobBoardLogUpdatedAgo": "log updated {ago}",
+  "@jobBoardLogUpdatedAgo": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardLineCount": "{count} lines",
+  "@jobBoardLineCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "jobBoardReadLogFailed": "Failed to read log: {error}",
+  "@jobBoardReadLogFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardReadingLog": "Reading…",
+  "jobBoardKillTooltip": "Terminate",
+  "jobBoardCopyJobIdTooltip": "Copy job id",
+  "jobBoardHandOffTooltip": "Let AI take over",
+  "jobBoardNeedTabTooltip": "Connect to this server first",
+  "jobBoardCopiedJobId": "Job id copied",
+  "jobBoardKillSent": "Termination signal sent",
+  "jobBoardConfirmKillTitle": "Terminate this job?",
+  "jobBoardConfirmKillContent": "{job} on {server}.\nSIGTERM will be sent to the whole process group; this cannot be undone.",
+  "@jobBoardConfirmKillContent": {
+    "placeholders": {
+      "job": {
+        "type": "String"
+      },
+      "server": {
+        "type": "String"
+      }
+    }
+  },
+  "jobBoardHandOffPrompt": "Background job `{id}` is still running. Use check_job to see its progress, then continue.",
+  "@jobBoardHandOffPrompt": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "timeJustNow": "just now",
+  "timeMinutesAgo": "{count} min ago",
+  "@timeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeHoursAgo": "{count} h ago",
+  "@timeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeDaysAgo": "{count} d ago",
+  "@timeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "timeToday": "today",
+  "timeYesterday": "yesterday",
+  "timeMonthsAgo": "{count} mo ago",
+  "@timeMonthsAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "knownHostFirstSeen": "First seen {date} · last {time}",
+  "@knownHostFirstSeen": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "fingerprintCopied": "Fingerprint copied",
+  "selectionColorFollowTheme": "Follow theme",
+  "selectionColorBlue": "Blue",
+  "selectionColorPurple": "Purple",
+  "selectionColorOrange": "Orange",
+  "selectionColorGray": "Gray",
+  "floatingNotConnected": "Not connected",
+  "floatingDisconnected": "disconnected",
+  "floatingGhostMode": "Ghost mode",
+  "floatingExitGhostMode": "Exit ghost mode",
+  "fileSaved": "Saved",
+  "fileSaveFailed": "Save failed: {error}",
+  "@fileSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "fileTooLargeReadonly": "File too large; showing first 512 KB with saving disabled to prevent data loss",
+  "imageDecodeFailed": "Failed to decode image",
+  "browseAction": "Browse",
+  "keyImportFailed": "Import failed: {error}",
+  "@keyImportFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "keyPassphraseEmptyHint": "Leave empty for no passphrase",
+  "transferFileTitle": "Transfer file (QUIC)",
+  "transferRemotePathHint": "Remote path (e.g. ~/upload/file.bin)",
+  "transferUpload": "Upload",
+  "transferDownload": "Download",
+  "transferWaiting": "Waiting...",
+  "transferFailedWithReason": "Failed: {error}",
+  "@transferFailedWithReason": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "transferUnknownError": "unknown",
+  "retry": "Retry",
+  "loading": "Loading…",
+  "settingsConnectionAdvancedSubtitle": "Compression {compression} · keep-alive {keepAlive}",
+  "@settingsConnectionAdvancedSubtitle": {
+    "placeholders": {
+      "compression": {
+        "type": "String"
+      },
+      "keepAlive": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSecuritySubtitle": "Dangerous command guard {state}",
+  "@settingsSecuritySubtitle": {
+    "placeholders": {
+      "state": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsPrivacySubtitle": "Crash reports {crash} · analytics {analytics}",
+  "@settingsPrivacySubtitle": {
+    "placeholders": {
+      "crash": {
+        "type": "String"
+      },
+      "analytics": {
+        "type": "String"
+      }
+    }
+  },
+  "refreshLosesSessionTitle": "Refreshing loses the session",
+  "refreshLosesSessionBody": "This server runs in Once mode. Refreshing starts a new shell — the original scrollback, running commands, and SHELL process will all be lost.\n\nIf you enable Daemon mode in the server settings, refreshing will truly \"restore\" the original session.",
+  "dontShowAgain": "Don't show again",
+  "continueRefresh": "Refresh anyway",
+  "highRiskCommandTitle": "High-risk command",
+  "highRiskCommandBody": "This command may damage data or the system. Run it anyway?",
+  "aiExplain": "AI explain",
+  "execute": "Run",
+  "quicConnectFailedHint": "QUIC connect failed: {error}\nFor an SSH fallback, change Transport to SSH in the server settings.",
+  "@quicConnectFailedHint": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tmuxNotFoundClosed": "[tmux not found, session closed automatically]",
+  "backAction": "Back",
+  "sftpRecentPaths": "Recent",
+  "sftpPinnedPaths": "Bookmarks",
+  "sftpNoRecentPaths": "No history yet",
+  "sftpNoPinnedPaths": "No bookmarks yet — long-press an entry to pin it",
+  "sftpPathSuggestions": "Suggestions",
+  "sftpPinPath": "Pin",
+  "sftpUnpinPath": "Unpin",
+  "sftpRemovePath": "Remove from history",
+  "@_promptLanguageName": {
+    "description": "这份 l10n 所用语言的自称，发给 AI 当语言锚点。新增一份 arb 时必须填上自己语言的名字——它不是给用户看的 UI 文案，而是写进 system prompt 的那个词。"
+  },
+  "agentPermReadOnly": "Read-only",
+  "agentPermReadOnlyDesc": "AI can look but not change anything",
+  "agentPermAsk": "Ask me",
+  "agentPermAskDesc": "Read commands just run; file changes queue up for one approval",
+  "agentPermBypass": "Allow all",
+  "agentPermBypassDesc": "Does anything without asking (credential files excepted)",
+  "agentPermTitle": "AI permissions",
+  "agentPermFollowGlobal": "Follow global ({mode})",
+  "@agentPermFollowGlobal": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "agentPermServerTitle": "AI permissions for this server",
+  "agentApprovalOnce": "Just this once",
+  "agentApprovalAlways": "Always allow",
+  "agentApprovalRulePrefix": "Always allow",
+  "agentApprovalReject": "Reject",
+  "promptLanguageName": "English"
+}

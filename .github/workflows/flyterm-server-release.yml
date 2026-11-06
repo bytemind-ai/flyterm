@@ -1,0 +1,42 @@
+name: flyterm-server release
+
+on:
+  push:
+    tags:
+      - 'aqt-server-v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      FLYTERM_REQUIRE_AARCH64: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.99'
+          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+      - run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      # aarch64 服务端靠 cargo-zigbuild 交叉编译。装预编译版，省掉每次
+      # cargo install 的编译时间。
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
+      # 和 release.yml 走同一个脚本、产出同名资产（flyterm-server-linux-<arch>.gz），
+      # rust/flyterm-server/install.sh 按这个名字下载 —— 改名要三处一起改。
+      - name: Build flyterm-server binaries
+        run: scripts/build-server-assets.sh --force
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            assets/flyterm-server/flyterm-server-linux-x86_64.gz
+            assets/flyterm-server/flyterm-server-linux-aarch64.gz
