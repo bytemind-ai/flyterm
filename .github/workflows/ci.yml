@@ -50,6 +50,18 @@ jobs:
   build-android:
     runs-on: ubuntu-latest
     steps:
+      # 标准 runner 只剩 ~14 GB：Flutter + Android SDK/NDK + Rust（两个 musl
+      # target）+ zig + 两次 Rust 构建会把它撑爆（No space left on device）。
+      # 删掉这个 job 用不到的预装工具链；Android SDK 和 Java 要留着。
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/node_modules /opt/ghc \
+            /usr/local/.ghcup /usr/share/swift /usr/local/share/powershell \
+            /usr/local/share/chromium /opt/microsoft /opt/google \
+            /opt/hostedtoolcache/CodeQL /opt/hostedtoolcache/go /opt/hostedtoolcache/PyPy
+          sudo docker image prune --all --force > /dev/null || true
+          df -h /
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4

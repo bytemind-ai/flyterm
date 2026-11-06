@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-06
+
+First open-source release. Versioning restarts at 0.7.0; the 2.x entries
+below are pre-open-source internal builds. Release APKs are signed with a
+new key, so an internal 2.x build has to be uninstalled before installing
+0.7.0. The Android build number continues from 63.
+
 ### Added
 - Open-sourced under GPL-3.0-or-later.
 - CI gate on pull requests: analyze, dual test run, Android build.
