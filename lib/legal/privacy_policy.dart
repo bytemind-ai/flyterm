@@ -11,7 +11,7 @@ abstract class PrivacyPolicy {
   static const String zh = '''
 # 隐私政策
 
-**最后更新日期：** 2026-11-04
+**最后更新日期：** 2026-11-07
 
 FlyTerm（"我们"、"本应用"）尊重并保护您的隐私。本政策说明我们如何收集、使用、存储与共享您的信息。
 
@@ -27,7 +27,7 @@ FlyTerm（"我们"、"本应用"）尊重并保护您的隐私。本政策说明
 
 - 崩溃日志：发生应用崩溃时，崩溃堆栈、设备型号、系统版本上传至 Sentry，用于修复缺陷。
 - 应用性能数据：关键操作（连接、断开、重连）的耗时统计，用于优化性能。
-- 关键操作事件：连接尝试 / Paywall 显示 / 内购流程等业务事件标记，用于产品改进。
+- 关键操作事件：连接尝试等业务事件标记，用于产品改进。
 
 **3. 我们不收集**
 
@@ -52,22 +52,12 @@ FlyTerm（"我们"、"本应用"）尊重并保护您的隐私。本政策说明
 ## 第三方 SDK
 
 - **Sentry**（崩溃报告 + 性能分析）：https://sentry.io/privacy/
-- **Apple App Store / Google Play 计费 SDK**（仅在您购买时调用）：相关数据由 Apple/Google 各自处理。
 
 ## 数据出境声明
 
 **Sentry 数据存储位置：** 美国（Sentry SaaS 主数据中心）/ 欧盟（部分用户可选）。
 对于中华人民共和国大陆用户、欧盟用户：使用本应用即表示您同意将上述（脱敏后的）崩溃数据传输至境外服务器。
 您可以在"设置 → 隐私"中随时关闭崩溃报告，关闭后不再有任何数据上传。
-
-## 支付信息
-
-FlyTerm Pro 一次性买断由 Apple App Store / Google Play 处理。我们不接触、不存储您的：
-- 信用卡号
-- Apple ID / Google 账号
-- 账单地址
-
-仅会收到 Apple/Google 返回的"购买凭证"（receipt），用于本地解锁 Pro 功能。
 
 ## 联系我们
 
@@ -79,7 +69,7 @@ FlyTerm Pro 一次性买断由 Apple App Store / Google Play 处理。我们不�
   static const String en = '''
 # Privacy Policy
 
-**Last updated:** 2026-11-04
+**Last updated:** 2026-11-07
 
 FlyTerm ("we", "the App") respects and protects your privacy. This policy explains how we collect, use, store, and share your information.
 
@@ -95,7 +85,7 @@ FlyTerm ("we", "the App") respects and protects your privacy. This policy explai
 
 - Crash logs: when the app crashes, the stack trace, device model, and OS version are uploaded to Sentry for bug fixes.
 - App performance data: timing of key operations (connect, disconnect, reconnect) for performance optimization.
-- Key business events: connection attempts, paywall display, in-app purchase flow markers, for product improvement.
+- Key business events such as connection attempts, for product improvement.
 
 **3. We Do Not Collect**
 
@@ -120,22 +110,12 @@ FlyTerm ("we", "the App") respects and protects your privacy. This policy explai
 ## Third-Party SDKs
 
 - **Sentry** (crash reports + performance): https://sentry.io/privacy/
-- **Apple App Store / Google Play Billing SDK** (invoked only when you purchase): handled by Apple / Google respectively.
 
 ## International Data Transfer
 
 **Sentry data storage location:** United States (Sentry SaaS primary) / EU (some users opt-in).
 For users in Mainland China and the European Union: by using the App you consent to the transfer of the above (scrubbed) crash data to servers outside your jurisdiction.
 You can disable crash reporting at any time in Settings → Privacy. No data is uploaded once disabled.
-
-## Payment Information
-
-FlyTerm Pro one-time purchase is handled entirely by Apple App Store / Google Play. We do not touch or store:
-- Credit card numbers
-- Apple ID / Google account
-- Billing address
-
-We only receive the purchase receipt returned by Apple/Google, used locally to unlock Pro features.
 
 ## Contact
 

@@ -15,7 +15,6 @@ import '../../data/terminal_settings.dart';
 import '../../sftp/sftp_service.dart';
 import '../terminal/terminal_screen.dart';
 import '../tunnel/tunnel_form_screen.dart';
-import '../../commerce/feature_gate.dart';
 import '../../tunnel/tunnel_manager.dart';
 import '../tunnel/tunnel_grouping.dart';
 import '../tunnel/tunnel_list_screen.dart';
@@ -24,7 +23,7 @@ import '../design/fly_tokens.dart';
 import '../../platform_capabilities.dart';
 import '../../update/update_checker.dart';
 import '../../update/play_in_app_updater.dart';
-import '../commerce/update_prompt_dialog.dart';
+import '../update/update_prompt_dialog.dart';
 import '../../ai/agent/agent_exec_channel.dart';
 import '../../ai/agent/agent_session_manager.dart';
 import '../../ai/agent/command_runner.dart';
@@ -212,14 +211,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _loadedServerCount;
   }
 
-  Future<void> _onSegmentChanged(Set<_HomeSegment> sel) async {
-    final next = sel.first;
-    if (next == _HomeSegment.tunnels && _segment != _HomeSegment.tunnels) {
-      final ok = await FeatureGate.checkOrShow(context, reason: 'pro_tunnel');
-      if (!ok) return;
-      if (!mounted) return;
-    }
-    setState(() => _segment = next);
+  void _onSegmentChanged(Set<_HomeSegment> sel) {
+    setState(() => _segment = sel.first);
   }
 
   @override

@@ -82,7 +82,6 @@ import '../../ssh/aqt/aqt_transport.dart' show AqtTransport;
 import '../../ssh/aqt/aqt_transport.dart';
 import '../../ssh/transport/remote_transport.dart' show TransportState;
 import '../../app.dart' show appRouteObserver;
-import '../../commerce/feature_gate.dart';
 import '../ui_flags.dart';
 import '../design/fly_tokens.dart';
 
@@ -1500,12 +1499,7 @@ class _TerminalScreenState extends State<TerminalScreen>
       case 'tunnel_new':
         if (tab == null) return;
         // 隧道管理的家已在首页「服务器｜隧道」分段（隧道管理项从 + 菜单
-        // 移除）。新建仍走这里的上下文入口，但闸门必须跟着隧道功能走 ——
-        // 否则这条路径可绕过付费墙。
-        if (!await FeatureGate.checkOrShow(context, reason: 'pro_tunnel')) {
-          return;
-        }
-        if (!mounted) return;
+        // 移除）；新建仍保留这里的上下文入口。
         _openTunnelForm(tab);
       case 'layout':
         if (tab == null) return;
@@ -2451,10 +2445,6 @@ class _TerminalScreenState extends State<TerminalScreen>
   /// 搬的是原样的代码：复用判断（按「client 是否可用」而非协议类型）、
   /// openDedicated 兜底、失败提示，一行未改。
   ///
-  /// FeatureGate **不在这里** —— 两个调用方各自判一次（用同一个
-  /// `pro_sftp` reason）。把闸放进共享方法会让「什么时候弹付费墙」
-  /// 取决于一个被两条路径共用的内部函数，难以推理。
-  ///
   /// 返回 null 表示建不起来（凭据缺失、连接失败），此时**已经**给用户
   /// 提示过了，调用方直接 return 即可。
   Future<({SFTPService svc, String initialPath})?> _ensureSftpService(
@@ -2564,11 +2554,7 @@ class _TerminalScreenState extends State<TerminalScreen>
   }
 
   /// keybar 附件按钮：选文件 → 传到终端当前目录 → 把路径插进命令行。
-  ///
-  /// 走的是 SFTP，所以要过和 [_openSftp] 同一道 Pro 闸。
   Future<void> _attachFile(SessionTab tab) async {
-    if (!await FeatureGate.checkOrShow(context, reason: 'pro_sftp')) return;
-    if (!mounted) return;
     final l = context.l10n;
 
     final picked = await FilePicker.platform.pickFiles();
@@ -2661,8 +2647,6 @@ class _TerminalScreenState extends State<TerminalScreen>
   }
 
   Future<void> _openSftp(SessionTab tab) async {
-    if (!await FeatureGate.checkOrShow(context, reason: 'pro_sftp')) return;
-    if (!context.mounted) return;
     final r = await _ensureSftpService(tab);
     if (r == null || !mounted) return;
     final svc = r.svc;

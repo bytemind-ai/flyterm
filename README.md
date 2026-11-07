@@ -68,9 +68,8 @@ tmux integration, and 10 colour themes.
 ## Install
 
 Grab the APK from [Releases](https://github.com/bytemind-ai/flyterm/releases),
-or build it yourself (below). Paid store builds for Google Play and the App
-Store are planned to fund development; the source build is free and fully
-unlocked.
+or build it yourself (below). Every feature is free; there are no in-app
+purchases.
 
 ## Build
 
@@ -88,13 +87,6 @@ Output: `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
 
 If `flutter` isn't on your `PATH` at the required version, point the script at
 it: `export FLYTERM_FLUTTER=/path/to/flutter/bin/flutter`.
-
-**Builds from source are fully unlocked, and that is the default** — you don't
-pass anything to get it. The in-app-purchase path is opt-in at compile time via
-`--dart-define=FLYTERM_ENABLE_IAP=true`, which only store builds use
-(`scripts/build_apk.sh --release-build`). With the flag absent, the feature gate
-always allows, no paywall can open, and the purchase layer short-circuits at
-startup — it never constructs the billing client, let alone contacts a store.
 
 **Signing.** A release APK normally needs credentials in
 `android/key.properties` (that file and the keystore are both out of git). You

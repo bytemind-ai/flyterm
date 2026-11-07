@@ -63,7 +63,6 @@ dependencies:
   # 8.x 的原生 SDK 与 Xcode 26 不兼容（SentryBinaryImageCache.image 编译报错），
   # iOS 构建会挂在 SentryFlutter.swift。9.x 起修复。
   sentry_flutter: ^9.29.0
-  in_app_purchase: ^3.2.0
   crypto: ^3.0.3
   # flutter_markdown 已被官方标记 discontinued（0.7.7+1 是最后一版），
   # flutter_markdown_plus 是其社区延续（README 明示 continuation of the

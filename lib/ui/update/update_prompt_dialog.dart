@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// lib/ui/commerce/update_prompt_dialog.dart
+// lib/ui/update/update_prompt_dialog.dart
 import 'package:flutter/material.dart';
 
 import '../../l10n/l10n.dart';

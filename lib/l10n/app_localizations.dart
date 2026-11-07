@@ -668,12 +668,6 @@ abstract class AppLocalizations {
   /// **'Connection'**
   String get sectionConnection;
 
-  /// No description provided for @sectionAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Account'**
-  String get sectionAccount;
-
   /// No description provided for @sectionAppearance.
   ///
   /// In en, this message translates to:
@@ -3516,126 +3510,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Revoking exits the app; next launch requires re-consent'**
   String get privacyRevokeCardDesc;
-
-  /// No description provided for @paywallTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'FlyTerm Pro'**
-  String get paywallTitle;
-
-  /// No description provided for @paywallSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'One-time purchase, unlock all Pro features forever'**
-  String get paywallSubtitle;
-
-  /// No description provided for @paywallFeatureQuic.
-  ///
-  /// In en, this message translates to:
-  /// **'QUIC protocol — low latency + roaming'**
-  String get paywallFeatureQuic;
-
-  /// No description provided for @paywallFeatureAi.
-  ///
-  /// In en, this message translates to:
-  /// **'AI assist — voice input & error analysis'**
-  String get paywallFeatureAi;
-
-  /// No description provided for @paywallFeatureTunnel.
-  ///
-  /// In en, this message translates to:
-  /// **'Port forwarding / SFTP / Mosh'**
-  String get paywallFeatureTunnel;
-
-  /// No description provided for @paywallFeatureFutureUpdates.
-  ///
-  /// In en, this message translates to:
-  /// **'All future Pro updates included'**
-  String get paywallFeatureFutureUpdates;
-
-  /// No description provided for @paywallPurchaseButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Purchase {price}'**
-  String paywallPurchaseButton(String price);
-
-  /// No description provided for @paywallRestoreButton.
-  ///
-  /// In en, this message translates to:
-  /// **'Already purchased? Restore'**
-  String get paywallRestoreButton;
-
-  /// No description provided for @paywallContinueLater.
-  ///
-  /// In en, this message translates to:
-  /// **'Maybe later'**
-  String get paywallContinueLater;
-
-  /// No description provided for @paywallLoadingPrice.
-  ///
-  /// In en, this message translates to:
-  /// **'Loading price…'**
-  String get paywallLoadingPrice;
-
-  /// No description provided for @paywallUnavailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Store unavailable, please try later'**
-  String get paywallUnavailable;
-
-  /// No description provided for @paywallPurchasePending.
-  ///
-  /// In en, this message translates to:
-  /// **'Confirming payment…'**
-  String get paywallPurchasePending;
-
-  /// No description provided for @paywallPurchaseError.
-  ///
-  /// In en, this message translates to:
-  /// **'Purchase failed: {error}'**
-  String paywallPurchaseError(String error);
-
-  /// No description provided for @paywallRestoreNoneFound.
-  ///
-  /// In en, this message translates to:
-  /// **'No purchase found for this account'**
-  String get paywallRestoreNoneFound;
-
-  /// No description provided for @paywallRestoreSuccess.
-  ///
-  /// In en, this message translates to:
-  /// **'Pro unlocked'**
-  String get paywallRestoreSuccess;
-
-  /// No description provided for @proStatusPro.
-  ///
-  /// In en, this message translates to:
-  /// **'FlyTerm Pro · Active'**
-  String get proStatusPro;
-
-  /// No description provided for @proStatusFree.
-  ///
-  /// In en, this message translates to:
-  /// **'Free'**
-  String get proStatusFree;
-
-  /// No description provided for @proStatusPurchasedAt.
-  ///
-  /// In en, this message translates to:
-  /// **'Purchased on {date}'**
-  String proStatusPurchasedAt(String date);
-
-  /// No description provided for @proStatusUpgrade.
-  ///
-  /// In en, this message translates to:
-  /// **'Upgrade to Pro'**
-  String get proStatusUpgrade;
-
-  /// No description provided for @proStatusRestore.
-  ///
-  /// In en, this message translates to:
-  /// **'Restore Purchase'**
-  String get proStatusRestore;
 
   /// Settings entry to view all OSS license texts
   ///

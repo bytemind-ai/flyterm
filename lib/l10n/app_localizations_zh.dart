@@ -305,9 +305,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sectionConnection => '连接';
 
   @override
-  String get sectionAccount => '账户';
-
-  @override
   String get sectionAppearance => '外观';
 
   @override
@@ -1865,72 +1862,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get privacyRevokeCardDesc => '撤回后下次启动需要重新同意条款';
-
-  @override
-  String get paywallTitle => 'FlyTerm Pro';
-
-  @override
-  String get paywallSubtitle => '一次性买断，永久解锁全部高级功能';
-
-  @override
-  String get paywallFeatureQuic => 'QUIC 协议 — 低延迟 + 网络漫游';
-
-  @override
-  String get paywallFeatureAi => 'AI 集成 — 语音输入与错误分析';
-
-  @override
-  String get paywallFeatureTunnel => '端口转发 / SFTP / Mosh';
-
-  @override
-  String get paywallFeatureFutureUpdates => '永久接收未来 Pro 功能更新';
-
-  @override
-  String paywallPurchaseButton(String price) {
-    return '购买 $price';
-  }
-
-  @override
-  String get paywallRestoreButton => '已购买？恢复';
-
-  @override
-  String get paywallContinueLater => '稍后再说';
-
-  @override
-  String get paywallLoadingPrice => '加载价格中…';
-
-  @override
-  String get paywallUnavailable => '应用商店不可用，请稍后再试';
-
-  @override
-  String get paywallPurchasePending => '支付确认中…';
-
-  @override
-  String paywallPurchaseError(String error) {
-    return '购买失败：$error';
-  }
-
-  @override
-  String get paywallRestoreNoneFound => '未找到此账号下的购买记录';
-
-  @override
-  String get paywallRestoreSuccess => '已恢复购买，Pro 已解锁';
-
-  @override
-  String get proStatusPro => 'FlyTerm Pro · 已激活';
-
-  @override
-  String get proStatusFree => '免费版';
-
-  @override
-  String proStatusPurchasedAt(String date) {
-    return '于 $date 购买';
-  }
-
-  @override
-  String get proStatusUpgrade => '升级到 Pro';
-
-  @override
-  String get proStatusRestore => '恢复购买';
 
   @override
   String get settingsOpenSourceLicenses => '开源许可';

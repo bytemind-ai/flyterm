@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -7,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:flyterm/commerce/entitlement_service.dart';
 import 'package:flyterm/data/database.dart';
 import 'package:flyterm/data/models/server.dart';
 import 'package:flyterm/data/repositories/server_repository.dart';
@@ -49,15 +46,7 @@ void main() {
     await db.close();
   });
 
-  Future<EntitlementService> pro() async {
-    final ent = EntitlementService();
-    await ent.load();
-    await ent.markPro(DateTime.now());
-    return ent;
-  }
-
   Widget app({
-    required EntitlementService ent,
     Map<String, int> tunnelCounts = const {},
     bool forceNewTab = false,
   }) =>
@@ -66,7 +55,6 @@ void main() {
           Provider<ServerRepository>.value(value: repo),
           ChangeNotifierProvider<SessionManager>.value(value: mgr),
           ChangeNotifierProvider<TunnelManager>.value(value: TunnelManager()),
-          ChangeNotifierProvider<EntitlementService>.value(value: ent),
         ],
         child: MaterialApp(
           locale: const Locale('zh'),
@@ -102,7 +90,7 @@ void main() {
 
   testWidgets('默认在服务器段', (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(app(ent: await pro()));
+      await tester.pumpWidget(app());
       await settle(tester);
       expect(segmentFinder(), findsOneWidget);
       expect(find.text('prod-web'), findsWidgets);
@@ -112,9 +100,9 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('切到隧道段（Pro）', (tester) async {
+  testWidgets('切到隧道段', (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(app(ent: await pro()));
+      await tester.pumpWidget(app());
       await settle(tester);
 
       await tester.tap(find.text('隧道 0'));
@@ -127,20 +115,9 @@ void main() {
     await tester.pump();
   });
 
-  test('首页分段入口带 pro_tunnel 闸门（源码级）', () {
-    // 免费用户路径会 push 真实 PaywallScreen，它 watch<PurchaseService>()，
-    // 测试里构造 PurchaseService 会碰到 InAppPurchase.instance —— 所以不在
-    // widget 层测闸门，改用源码断言（与 tunnel_menu_entry_test 同构）。
-    // 闸门行为本身由 test/commerce/feature_gate_test.dart 覆盖。
-    final src = File('lib/ui/home/home_screen.dart').readAsStringSync();
-    expect(src.contains("reason: 'pro_tunnel'"), isTrue,
-        reason: '切隧道段必须过 pro_tunnel 闸门');
-    expect(src.contains('FeatureGate.checkOrShow'), isTrue);
-  });
-
   testWidgets('有隧道计数时服务器行渲染徽标', (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(app(ent: await pro(), tunnelCounts: {serverId: 2}));
+      await tester.pumpWidget(app(tunnelCounts: {serverId: 2}));
       await settle(tester);
 
       expect(find.text('2 隧道'), findsOneWidget);
@@ -151,7 +128,7 @@ void main() {
 
   testWidgets('forceNewTab 模式不渲染分段', (tester) async {
     await tester.runAsync(() async {
-      await tester.pumpWidget(app(ent: await pro(), forceNewTab: true));
+      await tester.pumpWidget(app(forceNewTab: true));
       await settle(tester);
 
       expect(segmentFinder(), findsNothing);

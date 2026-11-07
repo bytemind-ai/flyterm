@@ -6,8 +6,6 @@
 
 - [ ] `flutter analyze` reports zero errors
 - [ ] `flutter test` passes
-- [ ] `flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true` passes
-      (only needed if you touched `lib/commerce/`)
 
 ## CLA
 
