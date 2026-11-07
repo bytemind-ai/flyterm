@@ -315,9 +315,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sectionConnection => 'Connection';
 
   @override
-  String get sectionAccount => 'Account';
-
-  @override
   String get sectionAppearance => 'Appearance';
 
   @override
@@ -1924,73 +1921,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get privacyRevokeCardDesc =>
       'Revoking exits the app; next launch requires re-consent';
-
-  @override
-  String get paywallTitle => 'FlyTerm Pro';
-
-  @override
-  String get paywallSubtitle =>
-      'One-time purchase, unlock all Pro features forever';
-
-  @override
-  String get paywallFeatureQuic => 'QUIC protocol — low latency + roaming';
-
-  @override
-  String get paywallFeatureAi => 'AI assist — voice input & error analysis';
-
-  @override
-  String get paywallFeatureTunnel => 'Port forwarding / SFTP / Mosh';
-
-  @override
-  String get paywallFeatureFutureUpdates => 'All future Pro updates included';
-
-  @override
-  String paywallPurchaseButton(String price) {
-    return 'Purchase $price';
-  }
-
-  @override
-  String get paywallRestoreButton => 'Already purchased? Restore';
-
-  @override
-  String get paywallContinueLater => 'Maybe later';
-
-  @override
-  String get paywallLoadingPrice => 'Loading price…';
-
-  @override
-  String get paywallUnavailable => 'Store unavailable, please try later';
-
-  @override
-  String get paywallPurchasePending => 'Confirming payment…';
-
-  @override
-  String paywallPurchaseError(String error) {
-    return 'Purchase failed: $error';
-  }
-
-  @override
-  String get paywallRestoreNoneFound => 'No purchase found for this account';
-
-  @override
-  String get paywallRestoreSuccess => 'Pro unlocked';
-
-  @override
-  String get proStatusPro => 'FlyTerm Pro · Active';
-
-  @override
-  String get proStatusFree => 'Free';
-
-  @override
-  String proStatusPurchasedAt(String date) {
-    return 'Purchased on $date';
-  }
-
-  @override
-  String get proStatusUpgrade => 'Upgrade to Pro';
-
-  @override
-  String get proStatusRestore => 'Restore Purchase';
 
   @override
   String get settingsOpenSourceLicenses => 'Open Source Licenses';

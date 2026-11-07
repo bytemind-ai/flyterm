@@ -141,29 +141,9 @@ flutter pub get
 flutter gen-l10n          # after editing lib/l10n/*.arb
 
 flutter analyze           # must report zero errors
-flutter test              # full suite, open-source defaults
+flutter test              # full suite
 flutter test test/data/keybar_config_test.dart   # a single file
 ```
-
-### Tests run twice, and both runs are CI gates
-
-In-app purchases are behind a compile-time flag that defaults to **off**, so a
-build from source is fully unlocked (`lib/commerce/feature_flags.dart`,
-`kEnableInAppPurchase`). That means the default test run exercises the
-open-source semantics and nothing else. The store semantics — paywall,
-entitlement persistence, purchase stream — only exist when the flag is on, so
-they get a second, narrower run:
-
-```bash
-# 1. open-source defaults (everything unlocked)
-flutter test
-
-# 2. store-build semantics (IAP enabled)
-flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true
-```
-
-Both are required to pass in CI. If you touch anything under `lib/commerce/`,
-run both locally before opening the PR.
 
 ### `flutter analyze` must be clean
 
@@ -266,7 +246,6 @@ which is what CI runs, needs no team at all.
    ```bash
    flutter analyze                        # zero errors
    flutter test                           # green
-   flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true
    ```
 5. Fill in the PR template: what changed, why, and how you verified it. "Why"
    matters more than "what" — the diff already shows what.

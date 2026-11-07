@@ -10,7 +10,6 @@ import '../../consent/consent_manager.dart';
 import '../../data/keybar_settings.dart';
 import '../../data/terminal_settings.dart';
 import '../../l10n/l10n.dart';
-import '../commerce/purchase_state_view.dart';
 import '../terminal/terminal_themes.dart';
 import 'widgets/settings_section_header.dart';
 
@@ -48,12 +47,6 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         children: [
           const SizedBox(height: 12),
-
-          // ── 账户 ──
-          // 段名用「账户」而非「PRO 状态」：PRO 是销售话术不是分类，且未来的
-          // 非-Pro 账户项（跨设备同步等）有处可放。
-          SettingsSectionHeader(l.sectionAccount),
-          const PurchaseStateView(),
 
           // ── 外观 ──
           SettingsSectionHeader(l.sectionAppearance),

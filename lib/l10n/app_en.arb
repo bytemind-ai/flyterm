@@ -116,7 +116,6 @@
   "jumpServerRequired": "Please select a jump server",
   "addJumpServer": "Add Jump Server",
   "sectionConnection": "Connection",
-  "sectionAccount": "Account",
   "sectionAppearance": "Appearance",
   "sectionInput": "Input",
   "sectionSecurity": "Security",
@@ -1062,47 +1061,6 @@
   "privacySectionDocuments": "Documents",
   "privacySectionDangerZone": "Danger Zone",
   "privacyRevokeCardDesc": "Revoking exits the app; next launch requires re-consent",
-  "paywallTitle": "FlyTerm Pro",
-  "paywallSubtitle": "One-time purchase, unlock all Pro features forever",
-  "paywallFeatureQuic": "QUIC protocol — low latency + roaming",
-  "paywallFeatureAi": "AI assist — voice input & error analysis",
-  "paywallFeatureTunnel": "Port forwarding / SFTP / Mosh",
-  "paywallFeatureFutureUpdates": "All future Pro updates included",
-  "paywallPurchaseButton": "Purchase {price}",
-  "@paywallPurchaseButton": {
-    "placeholders": {
-      "price": {
-        "type": "String"
-      }
-    }
-  },
-  "paywallRestoreButton": "Already purchased? Restore",
-  "paywallContinueLater": "Maybe later",
-  "paywallLoadingPrice": "Loading price…",
-  "paywallUnavailable": "Store unavailable, please try later",
-  "paywallPurchasePending": "Confirming payment…",
-  "paywallPurchaseError": "Purchase failed: {error}",
-  "@paywallPurchaseError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "paywallRestoreNoneFound": "No purchase found for this account",
-  "paywallRestoreSuccess": "Pro unlocked",
-  "proStatusPro": "FlyTerm Pro · Active",
-  "proStatusFree": "Free",
-  "proStatusPurchasedAt": "Purchased on {date}",
-  "@proStatusPurchasedAt": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "proStatusUpgrade": "Upgrade to Pro",
-  "proStatusRestore": "Restore Purchase",
   "settingsOpenSourceLicenses": "Open Source Licenses",
   "@settingsOpenSourceLicenses": {
     "description": "Settings entry to view all OSS license texts"

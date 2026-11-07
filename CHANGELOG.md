@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Removed
+- In-app purchases and "FlyTerm Pro". The paywall, the Pro status card in
+  Settings (and its now-empty Account section), purchase restore and every
+  feature gate are gone; tunnels, QUIC/Mosh and SFTP are simply available.
+  The `in_app_purchase` dependency, the `FLYTERM_ENABLE_IAP` build flag,
+  `scripts/build_apk.sh --release-build` and the second CI test run went
+  with them. The privacy policy and terms no longer describe payments.
+
 ## [0.7.0] - 2026-11-06
 
 First open-source release. Versioning restarts at 0.7.0; the 2.x entries

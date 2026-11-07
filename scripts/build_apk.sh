@@ -2,17 +2,11 @@
 # FlyTerm APK 构建脚本 —— **唯一的构建入口**。
 #
 # 为什么要有这个脚本（而不是让人手打 flutter 命令）：
-# 构建参数里有四条**互相咬合**的约束，漏一条就产出错的包。它们写在
-# `CLAUDE.md` 的「构建约束」里，但手打命令时总会漏：
+# 构建参数里有三条**互相咬合**的约束，漏一条就产出错的包，手打命令时总会漏：
 #
 #   1. `--release`              —— 禁止 debug 包（会带上调试符号与可观测副作用）
 #   2. `--split-per-abi`        —— 禁止 fat APK（体积翻倍，且与历史包签名/升级路径不一致）
 #   3. `--target-platform android-arm64` —— 只出 arm64
-#   4. `--dart-define=FLYTERM_ENABLE_IAP=false` —— **开源构建（全功能解锁）**
-#
-# 第 4 条默认值是开源模式：不带 IAP，功能全解锁，自行克隆构建的人不会撞上一个
-# 他根本无法完成支付的 Paywall。商店发布包需要开启真实 IAP 闭环，所以这里保留
-# 一个 `--release-build` 开关 —— 但它是**需要显式指定**的，默认永远是开源构建。
 #
 #
 # ## 为什么不写死路径
@@ -32,21 +26,15 @@ APK_OUT="build/app/outputs/flutter-apk"
 APK_FILE="$APK_OUT/app-arm64-v8a-release.apk"
 
 # ── 参数 ────────────────────────────────────────────────────────────────
-# 默认：开源构建（全功能解锁，无 IAP）。商店包需显式 --release-build。
-ENABLE_IAP=false
 for arg in "$@"; do
   case "$arg" in
-    --release-build)
-      # 商店发布包：开启真实 IAP 闭环。
-      ENABLE_IAP=true
-      ;;
     -h|--help)
       sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
       echo "ERROR: unknown argument: $arg" >&2
-      echo "usage: scripts/build_apk.sh [--release-build]" >&2
+      echo "usage: scripts/build_apk.sh" >&2
       exit 2
       ;;
   esac
@@ -160,17 +148,7 @@ if [ -x scripts/build-server-assets.sh ]; then
 fi
 
 # ── 构建 ────────────────────────────────────────────────────────────────
-if [ "$ENABLE_IAP" = "false" ]; then
-  echo "▶ 构建 release APK（开源构建：全功能解锁，无 IAP）..."
-else
-  echo "▶ 构建 release APK（**商店发布包**：真实 IAP，--dart-define=FLYTERM_ENABLE_IAP=true）..."
-  if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = "master" ] || [ -n "${CI:-}" ]; then
-    : # 主干/CI 上构建发布包是预期用法
-  else
-    echo "   注意：当前不在 master（$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')）。" >&2
-    echo "   发布包会走真实 IAP，确认这是你要的。" >&2
-  fi
-fi
+echo "▶ 构建 release APK..."
 
 # 开源贡献者通常没有发布 keystore。没有 android/key.properties 时自动回落到
 # debug 签名（android/app/build.gradle.kts 的 allowDebugSigning opt-in）——
@@ -185,8 +163,7 @@ fi
 "$FLUTTER" build apk \
   --release \
   --split-per-abi \
-  --target-platform android-arm64 \
-  --dart-define=FLYTERM_ENABLE_IAP="$ENABLE_IAP"
+  --target-platform android-arm64
 
 # ── 后置校验 ─────────────────────────────────────────────────────────────
 echo "▶ 校验 pubspec / APK / 下载页版本来源..."
@@ -205,8 +182,3 @@ fi
 SIZE=$(du -sh "$APK_FILE" | cut -f1)
 echo ""
 echo "✓ 构建完成：$APK_FILE ($SIZE)"
-if [ "$ENABLE_IAP" = "false" ]; then
-  echo "  模式：开源构建（全功能解锁，无 IAP）"
-else
-  echo "  模式：商店发布包（真实 IAP）"
-fi

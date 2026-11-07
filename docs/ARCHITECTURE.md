@@ -28,7 +28,6 @@ lib/
   ssh/                      Connection logic. No Flutter widgets.
   ai/                       Provider clients, the agent loop, its tools.
   ui/                       Everything that draws.
-  commerce/                 Entitlement + in-app purchase.
   telemetry/                Opt-in crash reporting and scrubbing.
 
   app_control/              Lets the agent mutate app state (with undo).
@@ -105,33 +104,10 @@ Flutter-free, so it is testable without a widget binding.
 Grouped by feature: `home/` (server list and form), `terminal/` (terminal
 screen, key bar, split and floating layouts, selection, debug overlay),
 `ai/` (the agent panel and the global AI screen), `settings/`, `sftp/`,
-`tunnel/`, `notifications/`, `jobs/`, `commerce/`, `legal/`, `voice/`, and
+`tunnel/`, `notifications/`, `jobs/`, `update/`, `legal/`, `voice/`, and
 `shell/` (`AppShell`, the bottom-tab container). `ui/design/fly_tokens.dart`
 is the single source of truth for theme tokens — `app.dart` calls
 `buildFlyTermTheme()` rather than deriving a scheme from a seed colour.
-
-### `commerce/`
-
-`feature_flags.dart` defines the compile-time switch
-`kEnableInAppPurchase` (`bool.fromEnvironment('FLYTERM_ENABLE_IAP')`), which
-**defaults to false** — a build from source is fully unlocked unless someone
-explicitly opts into the purchase flow. Store builds pass
-`--dart-define=FLYTERM_ENABLE_IAP=true`.
-
-`EntitlementService` (a `ChangeNotifier` singleton) holds the current
-entitlement; `FeatureGate` is the single place features ask whether they are
-allowed; `PurchaseService` talks to the store; `ProductCatalog` names the
-product ids. When `kEnableInAppPurchase` is false, all three short-circuit to
-"entitled" and no store call is made.
-
-One non-obvious constraint lives in `PurchaseService`: the plugin handle is
-`late final` rather than resolved in the constructor's initialiser list.
-`InAppPurchase.instance` is a getter with side effects — it registers the
-platform implementation and opens a billing connection. Since `main.dart`
-constructs `PurchaseService` unconditionally, resolving it eagerly meant an
-open-source build touched the billing stack just by building the provider,
-which the `init()` short-circuit could not undo because it ran too late. Keep
-the evaluation lazy.
 
 ### `telemetry/`
 
@@ -184,8 +160,6 @@ single `MultiProvider`. Two conventions are used:
 | `TunnelManager` | `ChangeNotifierProvider.value` | Live port forwarding. |
 | `SplitManager` | `ChangeNotifierProvider.value` | Layout state (see §3). |
 | `ConsentManager` | `ChangeNotifierProvider.value` | Singleton; gates telemetry. |
-| `EntitlementService` | `ChangeNotifierProvider.value` | Singleton; `load()` fired after `runApp`. |
-| `PurchaseService` | `Provider.value` | `init()` fired after `runApp`. |
 | `AppControlService?` | `Provider<AppControlService?>.value` | Agent-facing facade over settings/servers/sessions/tunnels/key bar/layout/keys/commands/skills/known hosts/notes. Registered as a **nullable** type so widget tests that do not wire it read `null` instead of throwing `ProviderNotFoundException`. |
 
 Ordering constraints that are not obvious from the table:
@@ -196,9 +170,6 @@ Ordering constraints that are not obvious from the table:
 - `NotifyOrchestrator.start()` runs before any QUIC connection, or early
   `onNotify` events are dropped silently for want of a listener.
 - `ServerNotesManager.migrateFromPrefs()` runs before `load()` (§4).
-- Billing (`EntitlementService.load()`, `PurchaseService.init()`) is fired
-  *after* `runApp` — it is a network handshake and does not belong on the
-  cold-start critical path.
 
 `appNavigatorKey` (declared in `main.dart`) is the escape hatch that lets the
 connection layer raise UI — the host-key TOFU dialog, the QUIC install prompt,
