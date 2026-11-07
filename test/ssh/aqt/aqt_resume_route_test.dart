@@ -8,6 +8,7 @@ import 'package:flyterm/ssh/aqt/aqt_session_state.dart';
 import 'package:flyterm/ssh/aqt/aqt_ssh_relay.dart';
 import 'package:flyterm/ssh/aqt/aqt_transport.dart';
 import 'package:flyterm/ssh/aqt/aqt_transport_factory.dart';
+import 'package:flyterm/ssh/transport/transport_factory.dart';
 
 class _Exec implements AqtRelayExec {
   final _in = StreamController<Uint8List>();
@@ -106,6 +107,28 @@ void main() {
     await relay.done.timeout(const Duration(seconds: 1));
   });
 
+  test('resume_viaSsh_late_opener_relay_is_closed', () async {
+    // The opener outlives the relay budget: RESUME has already failed, so
+    // nobody owns the relay it eventually returns — it must be closed, or
+    // its `--relay` process lives on the server until SSH drops.
+    final relay = await AqtSshRelay.attach(_Exec());
+    final pending = Completer<AqtSshRelay>();
+    final r = await AqtTransportFactory.tryResumeWithInfoDetailed(
+      host: 'srv.example.com',
+      port: 61005,
+      spki: spki,
+      sessionToken: token,
+      tabId: 1,
+      route: AqtRoute.viaSsh,
+      openRelay: (_) => pending.future,
+      relayBudget: const Duration(milliseconds: 20),
+    );
+    expect(r, isA<AqtResumeFailed>());
+    pending.complete(relay);
+    await relay.done.timeout(const Duration(seconds: 1));
+    expect(endpointCalls, isEmpty);
+  });
+
   test('direct_route_never_opens_relay', () async {
     var opened = 0;
     await AqtTransportFactory.tryResumeWithInfoDetailed(
@@ -133,5 +156,36 @@ void main() {
     expect(s.port, 61005);
     expect(s.route, AqtRoute.viaSsh);
     expect(s.aqtTabId, 3);
+  });
+
+  group('relayFailureOf', () {
+    test('finds the relay failure through every wrapper', () {
+      expect(AqtTransportFactory.relayFailureOf(const AqtRelayUnsupportedException()),
+          isA<AqtRelayUnsupportedException>());
+      final routed = AqtRouteException(
+          TimeoutException('udp'), const AqtRelayStartException('denied'));
+      expect(AqtTransportFactory.relayFailureOf(routed), isA<AqtRelayStartException>());
+      expect(
+        AqtTransportFactory.relayFailureOf(TransportConnectException(
+            'AQT connect failed',
+            AqtRouteException(
+                TimeoutException('udp'), const AqtRelayUnsupportedException()))),
+        isA<AqtRelayUnsupportedException>(),
+      );
+    });
+
+    test('is null when the relay is not what failed', () {
+      expect(AqtTransportFactory.relayFailureOf(TimeoutException('udp')), isNull);
+      expect(
+        AqtTransportFactory.relayFailureOf(
+            AqtRouteException(TimeoutException('udp'), TimeoutException('relay'))),
+        isNull,
+      );
+      expect(
+        AqtTransportFactory.relayFailureOf(
+            const TransportConnectException('AQT connect failed')),
+        isNull,
+      );
+    });
   });
 }

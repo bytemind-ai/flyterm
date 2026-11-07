@@ -17,6 +17,7 @@ import '../data/repositories/mosh_process_repository.dart';
 import '../data/repositories/ssh_key_repository.dart';
 import 'host_key_verifier.dart';
 import 'mosh_connection.dart';
+import 'ssh_connection.dart';
 import 'ssh_connection_pool.dart';
 import 'ssp_interface.dart' as v2iface;
 import 'ssp_v2/mosh_shell_v2.dart';
@@ -875,22 +876,54 @@ class ReconnectService with WidgetsBindingObserver {
     });
   }
 
-  /// 为 [tab] 的 SSH 通道会话（[AqtRoute.viaSsh]）开一条 relay：走这个 tab
-  /// 的 SSH 辅助连接 —— 它已经处理好凭据、跳板机和断线重建。连接还没好就先
-  /// 预热，正在预热就每 200 ms 看一次；总时长由调用方的超时（8 s）兜住。
+  /// 为 [tab] 的 SSH 通道会话（[AqtRoute.viaSsh]）开一条 relay，走一条**专属**
+  /// SSH 连接，relay 关闭时一并断开。
+  ///
+  /// 不复用 `tab.connection`（辅助连接）：冷启动时 terminal_screen 会在同一个
+  /// `SSHConnection` 上再调一次 `connect()`，而 `connect()` 第一步就是关掉现有
+  /// client —— relay 骑在上面的话，刚恢复的会话随之断掉。等辅助连接预热也没有
+  /// 可靠的终点（预热失败只留日志），曾经的轮询会一直转下去。专属连接两头都
+  /// 避开，代价是会话期间多一条 SSH 连接。超时由调用方的 relay 预算兜住，
+  /// 超时后才建好的 relay 会被关掉（见 tryResumeWithInfoDetailed）。
   Future<AqtSshRelay> openAqtRelay(SessionTab tab, int daemonPort) async {
-    var client = tab.connection.client;
-    if (client == null || client.isClosed) {
-      unawaited(_warmupAuxSshClient(tab));
-      while (client == null || client.isClosed) {
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        if (!_sessionManager.tabs.contains(tab)) {
-          throw StateError('tab closed while waiting for its SSH connection');
-        }
-        client = tab.connection.client;
-      }
+    final creds = await _loadServerCreds(tab.server.id, tab.server);
+    if (!_sessionManager.tabs.contains(tab)) {
+      throw StateError('tab closed before its SSH relay opened');
     }
-    return AqtSshRelay.start(client, daemonPort: daemonPort);
+    final server = creds.server;
+    final jump = creds.jump;
+    final conn = SSHConnection();
+    await conn.connect(
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      password: creds.password,
+      keyPairs: creds.keyPairs,
+      jumpHost: jump?.host,
+      jumpPort: jump?.port,
+      jumpUsername: jump?.username,
+      jumpPassword: jump?.password,
+      jumpPrivateKeyPem: jump?.privateKeyPem,
+      agentKeyPairs: creds.agentKeyPairs,
+      openShell: false,
+      firstAttempt: false,
+      hostKeyVerifier: _hostKeyVerifier,
+      // 不进连接池：池化的 client 是多个 tab 共享的，relay 关闭时要能整条断开。
+      addressFamily: server.addressFamily,
+      sshCompression: _sshCompression,
+    );
+    final client = conn.client;
+    if (client == null) {
+      await conn.close();
+      throw StateError('SSH connection for the relay did not come up');
+    }
+    try {
+      return await AqtSshRelay.start(client,
+          daemonPort: daemonPort, onClose: () => unawaited(conn.close()));
+    } catch (_) {
+      await conn.close();
+      rethrow;
+    }
   }
 
   /// QUIC tab 后台预热 SSH 辅助连接，供 SFTP / tmux / tunnel 等需要 SSH 的

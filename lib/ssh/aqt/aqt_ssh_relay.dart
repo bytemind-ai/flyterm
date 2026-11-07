@@ -7,6 +7,8 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import 'aqt_route.dart' show closeIfLate;
+
 /// QUIC over an SSH channel, App side.
 ///
 /// When UDP to the daemon is blocked (only port 22 open, or the phone's
@@ -117,7 +119,7 @@ class AqtSshRelay {
   final RawDatagramSocket _socket;
   final RelayFrameDecoder _decoder = RelayFrameDecoder();
   final Completer<void> _done = Completer<void>();
-  SSHClient? _ownedClient;
+  void Function()? _onClose;
   InternetAddress? _appAddress;
   int? _appPort;
   StreamSubscription<RawSocketEvent>? _socketSub;
@@ -133,24 +135,50 @@ class AqtSshRelay {
   Future<void> get done => _done.future;
 
   /// Opens the relay over [client] towards the daemon on [daemonPort].
-  /// With [ownsClient], [close] also closes [client] (a connection opened
-  /// just for this relay).
+  /// [onClose] runs when the relay closes — for a connection opened just
+  /// for this relay, pass whatever closes it.
   static Future<AqtSshRelay> start(
     SSHClient client, {
     required int daemonPort,
-    bool ownsClient = false,
+    void Function()? onClose,
+  }) =>
+      startVia(
+        (command) async => SshSessionRelayExec(await client.execute(command)),
+        daemonPort: daemonPort,
+        onClose: onClose,
+      );
+
+  /// [start] over any channel opener. Every step is bounded by [step]:
+  /// dartssh2 has no channel-open timeout, so a stalled server would
+  /// otherwise hang the caller forever. A channel that opens after its
+  /// step has no owner and is closed.
+  @visibleForTesting
+  static Future<AqtSshRelay> startVia(
+    Future<AqtRelayExec> Function(String command) execute, {
+    required int daemonPort,
+    void Function()? onClose,
+    Duration step = const Duration(seconds: 5),
   }) async {
-    final probe = await client.execute(relaySupportProbeCommand());
-    final answer = await probe.stdout
-        .cast<List<int>>()
-        .transform(utf8.decoder)
-        .join()
-        .timeout(const Duration(seconds: 5));
-    probe.close();
+    Future<AqtRelayExec> open(String command) => closeIfLate(
+          execute(command),
+          step,
+          onLate: (exec) async => exec.close(),
+          timeoutMessage: 'SSH channel did not open within $step',
+        );
+    final probe = await open(relaySupportProbeCommand());
+    final String answer;
+    try {
+      answer = await probe.stdout
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .join()
+          .timeout(step);
+    } finally {
+      probe.close();
+    }
     if (answer.trim() != 'yes') throw const AqtRelayUnsupportedException();
-    final session = await client.execute(relayExecCommand(daemonPort));
-    final relay = await startOnExec(SshSessionRelayExec(session));
-    if (ownsClient) relay._ownedClient = client;
+    final relay = await startOnExec(await open(relayExecCommand(daemonPort)));
+    relay._onClose = onClose;
     return relay;
   }
 
@@ -227,7 +255,7 @@ class AqtSshRelay {
     await _stdoutSub?.cancel();
     _socket.close();
     _exec.close();
-    _ownedClient?.close();
-    _ownedClient = null;
+    _onClose?.call();
+    _onClose = null;
   }
 }
