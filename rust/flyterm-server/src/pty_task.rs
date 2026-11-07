@@ -137,6 +137,38 @@ pub struct HistoryLoggerHandle;
 
 /// Assembles the login-shell command + environment for a PTY.
 ///
+/// The locale variable to set so the shell's character set is UTF-8, or
+/// `None` if it already is.
+///
+/// The PTY inherits the daemon's env, which comes from whatever started it:
+/// a bare boot / nohup env has no locale at all, and minimal images ship
+/// `LANG=C` or `LC_ALL=C`. Either way CJK filenames and output turn into
+/// `???` — the client always speaks UTF-8.
+///
+/// Only the character set is fixed. The client's own locale is NOT
+/// forwarded (tsshd does, via AcceptEnv): a phone's `zh_CN.UTF-8` that the
+/// remote never generated makes `setlocale` fail and fall back to `C`, and
+/// would also switch every program's messages to the phone's language. So
+/// `LANG` survives when set, and only the variable that actually decides
+/// `LC_CTYPE` — `LC_ALL` > `LC_CTYPE` > `LANG` — is touched. `C.UTF-8` is
+/// built into glibc ≥ 2.35, Debian/Ubuntu and musl.
+fn utf8_locale_fix(get: impl Fn(&str) -> Option<String>) -> Option<(&'static str, &'static str)> {
+    const UTF8: &str = "C.UTF-8";
+    let set = |k: &str| get(k).filter(|v| !v.is_empty());
+    let is_utf8 = |v: &str| {
+        let v = v.to_ascii_lowercase();
+        v.contains("utf-8") || v.contains("utf8")
+    };
+    if let Some(all) = set("LC_ALL") {
+        return (!is_utf8(&all)).then_some(("LC_ALL", UTF8));
+    }
+    match set("LC_CTYPE").or_else(|| set("LANG")) {
+        Some(v) if is_utf8(&v) => None,
+        Some(_) => Some(("LC_CTYPE", UTF8)),
+        None => Some(("LANG", UTF8)),
+    }
+}
+
 /// Split out of [`spawn_pty`] so the env policy can be asserted without
 /// allocating a real PTY — the `spawn_pty` tests are `#[ignore]`d for exactly
 /// that reason, which is how `env_remove("COLORTERM")` (see below) survived
@@ -201,10 +233,10 @@ fn build_shell_command(cfg: &PtySpawnConfig) -> CommandBuilder {
     cmd.env("COLORTERM", "truecolor");
     // Server keeps the PTY env clean — terminal-protocol filtering lives
     // on the client side (see lib/ssh/transport/tmux_passthrough_unwrapper.dart
-    // and friends). Sane defaults only for LANG when the daemon was
-    // started with a bare env (boot / nohup outside any shell profile).
-    if std::env::var_os("LANG").is_none() {
-        cmd.env("LANG", "C.UTF-8");
+    // and friends). The one locale default: a UTF-8 character set, see
+    // [`utf8_locale_fix`].
+    if let Some((key, value)) = utf8_locale_fix(|k| std::env::var(k).ok()) {
+        cmd.env(key, value);
     }
     if let Some(cwd) = &cfg.cwd {
         if std::path::Path::new(cwd).is_dir() {
@@ -475,6 +507,64 @@ mod tests {
             cmd.get_env("FLYTERM_NOTIFY_SOCK"),
             Some(std::ffi::OsStr::new("/tmp/flyterm-test.sock")),
         );
+    }
+
+    fn env_of<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<String> + 'a {
+        move |k| {
+            pairs
+                .iter()
+                .find(|(n, _)| *n == k)
+                .map(|(_, v)| v.to_string())
+        }
+    }
+
+    /// A bare daemon env (boot / nohup) keeps the old default: `LANG`.
+    #[test]
+    fn utf8_fix_sets_lang_when_no_locale_is_set() {
+        assert_eq!(utf8_locale_fix(env_of(&[])), Some(("LANG", "C.UTF-8")));
+        assert_eq!(
+            utf8_locale_fix(env_of(&[("LANG", "")])),
+            Some(("LANG", "C.UTF-8"))
+        );
+    }
+
+    /// `LANG=C` (minimal images): fix only the character set, so message
+    /// language stays whatever `LANG` says.
+    #[test]
+    fn utf8_fix_sets_lc_ctype_when_lang_is_not_utf8() {
+        assert_eq!(
+            utf8_locale_fix(env_of(&[("LANG", "C")])),
+            Some(("LC_CTYPE", "C.UTF-8"))
+        );
+        assert_eq!(
+            utf8_locale_fix(env_of(&[("LANG", "POSIX")])),
+            Some(("LC_CTYPE", "C.UTF-8"))
+        );
+        assert_eq!(
+            utf8_locale_fix(env_of(&[("LANG", "en_US.UTF-8"), ("LC_CTYPE", "C")])),
+            Some(("LC_CTYPE", "C.UTF-8")),
+        );
+    }
+
+    /// `LC_ALL` overrides every other variable, so it is the one to replace.
+    #[test]
+    fn utf8_fix_replaces_lc_all_when_it_is_not_utf8() {
+        assert_eq!(
+            utf8_locale_fix(env_of(&[("LC_ALL", "C"), ("LANG", "en_US.UTF-8")])),
+            Some(("LC_ALL", "C.UTF-8")),
+        );
+    }
+
+    #[test]
+    fn utf8_fix_leaves_a_utf8_locale_alone() {
+        for env in [
+            &[("LANG", "en_US.UTF-8")][..],
+            &[("LANG", "zh_CN.utf8")][..],
+            &[("LANG", "C"), ("LC_CTYPE", "C.UTF-8")][..],
+            &[("LANG", "C"), ("LC_ALL", "en_US.UTF-8")][..],
+        ] {
+            assert_eq!(utf8_locale_fix(env_of(env)), None, "{env:?}");
+        }
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
