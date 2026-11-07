@@ -10,6 +10,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHClient;
 
 import '../../data/models/server.dart';
+import '../../l10n/l10n.dart';
 import '../ssh_connection.dart' show sshConnectForExec;
 import '../transport/remote_transport.dart';
 import '../transport/transport_factory.dart';
@@ -18,6 +19,8 @@ import 'aqt_ffi.dart';
 import 'aqt_install_dialog.dart';
 import 'aqt_port_restart_dialog.dart';
 import 'aqt_port_spec.dart';
+import 'aqt_route.dart';
+import 'aqt_ssh_relay.dart';
 import 'aqt_server_installer.dart';
 import 'aqt_transport.dart';
 
@@ -206,21 +209,60 @@ class AqtTransportFactory implements TransportFactory {
 
           // 4) QUIC connect — keep bootstrapResult alive until connected.
           //    Close bootstrap channel in ALL exit paths to avoid SSH session leak.
+          //
+          //    Route (see AqtRoute): direct UDP first (4 s), then QUIC over
+          //    an SSH exec channel on this same SSH connection — unless the
+          //    server is set to always use the SSH channel, or this run
+          //    already found UDP blocked for it.
           AqtTransport? transport;
+          AqtRouteOutcome<AqtTransport>? routed;
           Object? quicError;
           final hsSw = Stopwatch()..start();
+          final info = bootstrapResult.info;
+          final ports = AqtPortSpec.forServer(server.aqtPorts);
           try {
-            transport = await AqtTransport.connect(
-              host: server.host,
-              bootstrap: bootstrapResult.info,
-            ).timeout(
-              const Duration(seconds: 8),
-              onTimeout: () => throw AqtBootstrapException(
-                  'QUIC connect timed out after bootstrap — UDP port '
-                  '${bootstrapResult.info.port} unreachable? Allow UDP '
-                  '${AqtPortSpec.forServer(server.aqtPorts)} in the server '
-                  'firewall / security group'),
+            routed = await connectWithRoute<AqtTransport>(
+              forceViaSsh: server.aqtViaSsh,
+              cached: AqtRouteCache.instance.get(server.id),
+              direct: () => closeIfLate(
+                AqtTransport.connect(host: server.host, bootstrap: info),
+                const Duration(seconds: 4),
+                onLate: (t) => t.close(),
+                timeoutMessage: 'QUIC connect timed out — UDP port '
+                    '${info.port} unreachable? Allow UDP $ports in the '
+                    'server firewall / security group',
+              ),
+              viaSsh: () async {
+                final relay =
+                    await AqtSshRelay.start(client, daemonPort: info.port);
+                try {
+                  final t = await closeIfLate(
+                    AqtTransport.connect(
+                      host: '127.0.0.1',
+                      bootstrap: info.withPort(relay.localPort),
+                    ),
+                    const Duration(seconds: 8),
+                    onLate: (t) => t.close(),
+                    timeoutMessage: 'QUIC over the SSH relay timed out',
+                  );
+                  t.attachRelay(
+                    route: AqtRoute.viaSsh,
+                    relay: relay,
+                    // The relay rides this SSH connection: when we opened
+                    // it, the transport now owns it (closed with the
+                    // transport instead of below).
+                    ownedSshClient: clientOwned ? client : null,
+                    daemonPort: info.port,
+                  );
+                  return t;
+                } catch (_) {
+                  await relay.close();
+                  rethrow;
+                }
+              },
             );
+            transport = routed.value;
+            AqtRouteCache.instance.set(server.id, routed.route);
             handshakeMs = hsSw.elapsedMilliseconds;
           } catch (e) {
             quicError = e;
@@ -258,7 +300,16 @@ class AqtTransportFactory implements TransportFactory {
           //    its own lazily on first tool call (see AgentExecChannel), so that
           //    sessions which never use the AI panel don't carry an idle SSH
           //    connection for their whole lifetime.
-          if (clientOwned) client.close();
+          if (clientOwned && routed!.route == AqtRoute.direct) client.close();
+          if (routed!.autoFellBack &&
+              dialogContext != null &&
+              dialogContext.mounted &&
+              AqtRouteCache.instance.markFallbackNotified(server.id)) {
+            ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(
+              content: Text(dialogContext.l10n.aqtFellBackToSsh(ports.arg)),
+              duration: const Duration(seconds: 6),
+            ));
+          }
           transport!.lastConnectTimings = ConnectTimings(
             tcpMs: tcpMs,
             authMs: authMs,

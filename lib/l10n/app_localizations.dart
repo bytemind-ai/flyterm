@@ -6285,6 +6285,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Keep current port'**
   String get aqtPortRestartKeep;
+
+  /// No description provided for @aqtFellBackToSsh.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP {ports} for lower latency.'**
+  String aqtFellBackToSsh(String ports);
 }
 
 class _AppLocalizationsDelegate

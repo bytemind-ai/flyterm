@@ -3463,4 +3463,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aqtPortRestartKeep => '继续用当前端口';
+
+  @override
+  String aqtFellBackToSsh(String ports) {
+    return 'UDP 不可用，已改为经由 SSH 通道连接。放行 UDP $ports 可获得更低延迟。';
+  }
 }

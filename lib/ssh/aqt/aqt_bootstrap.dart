@@ -25,6 +25,15 @@ class AqtBootstrapInfo {
     required this.token,
     this.sessions,
   });
+
+  /// The same info aimed at another port — the SSH relay's local one.
+  AqtBootstrapInfo withPort(int newPort) => AqtBootstrapInfo(
+        version: version,
+        port: newPort,
+        spki: spki,
+        token: token,
+        sessions: sessions,
+      );
 }
 
 /// Bootstrap result: holds the parsed info AND (optionally) the SSH session.

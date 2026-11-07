@@ -2307,5 +2307,13 @@
     }
   },
   "aqtPortRestartConfirm": "Restart",
-  "aqtPortRestartKeep": "Keep current port"
+  "aqtPortRestartKeep": "Keep current port",
+  "aqtFellBackToSsh": "UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP {ports} for lower latency.",
+  "@aqtFellBackToSsh": {
+    "placeholders": {
+      "ports": {
+        "type": "String"
+      }
+    }
+  }
 }
