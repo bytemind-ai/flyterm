@@ -99,12 +99,6 @@ void main() {
           reason: 'tunnelList 枚举值应已删除');
     });
 
-    test('tunnel_new 带 pro_tunnel 闸门', () {
-      final src = File('lib/ui/terminal/terminal_screen.dart').readAsStringSync();
-      expect(src.contains("reason: 'pro_tunnel'"), isTrue,
-          reason: '新建隧道入口必须过 pro_tunnel 闸门，堵住付费墙漏洞');
-    });
-
     test('+ 菜单渲染分隔线（分类边界）', () {
       final src = File('lib/ui/terminal/terminal_screen.dart').readAsStringSync();
       expect(src.contains('dividerBeforeIndex'), isTrue,

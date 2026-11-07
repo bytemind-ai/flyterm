@@ -95,7 +95,6 @@
   "jumpServerRequired": "请选择跳板服务器",
   "addJumpServer": "新建跳板服务器",
   "sectionConnection": "连接",
-  "sectionAccount": "账户",
   "sectionAppearance": "外观",
   "sectionInput": "输入",
   "sectionSecurity": "安全",
@@ -753,47 +752,6 @@
   "privacySectionDocuments": "文档",
   "privacySectionDangerZone": "危险操作",
   "privacyRevokeCardDesc": "撤回后下次启动需要重新同意条款",
-  "paywallTitle": "FlyTerm Pro",
-  "paywallSubtitle": "一次性买断，永久解锁全部高级功能",
-  "paywallFeatureQuic": "QUIC 协议 — 低延迟 + 网络漫游",
-  "paywallFeatureAi": "AI 集成 — 语音输入与错误分析",
-  "paywallFeatureTunnel": "端口转发 / SFTP / Mosh",
-  "paywallFeatureFutureUpdates": "永久接收未来 Pro 功能更新",
-  "paywallPurchaseButton": "购买 {price}",
-  "@paywallPurchaseButton": {
-    "placeholders": {
-      "price": {
-        "type": "String"
-      }
-    }
-  },
-  "paywallRestoreButton": "已购买？恢复",
-  "paywallContinueLater": "稍后再说",
-  "paywallLoadingPrice": "加载价格中…",
-  "paywallUnavailable": "应用商店不可用，请稍后再试",
-  "paywallPurchasePending": "支付确认中…",
-  "paywallPurchaseError": "购买失败：{error}",
-  "@paywallPurchaseError": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
-  "paywallRestoreNoneFound": "未找到此账号下的购买记录",
-  "paywallRestoreSuccess": "已恢复购买，Pro 已解锁",
-  "proStatusPro": "FlyTerm Pro · 已激活",
-  "proStatusFree": "免费版",
-  "proStatusPurchasedAt": "于 {date} 购买",
-  "@proStatusPurchasedAt": {
-    "placeholders": {
-      "date": {
-        "type": "String"
-      }
-    }
-  },
-  "proStatusUpgrade": "升级到 Pro",
-  "proStatusRestore": "恢复购买",
   "settingsOpenSourceLicenses": "开源许可",
   "settingsOpenSourceLicensesSubtitle": "查看第三方库及许可证",
   "updatePromptTitleOptional": "有可用更新",

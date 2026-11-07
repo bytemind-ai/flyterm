@@ -24,25 +24,6 @@ class Breadcrumbs {
     );
   }
 
-  static void paywall(String action, {String? reason}) {
-    _add(
-      category: 'paywall',
-      message: action,
-      data: {if (reason != null) 'reason': reason},
-    );
-  }
-
-  static void iap(String state, {String? productId, String? errorCode}) {
-    _add(
-      category: 'iap',
-      message: state,
-      data: {
-        if (productId != null) 'productId': productId,
-        if (errorCode != null) 'errorCode': errorCode,
-      },
-    );
-  }
-
   static void custom({
     required String category,
     required String message,

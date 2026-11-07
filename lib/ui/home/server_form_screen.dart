@@ -11,8 +11,6 @@ import '../../data/repositories/ssh_key_repository.dart';
 import '../../data/secure_storage.dart';
 import '../../l10n/l10n.dart';
 import '../../platform_capabilities.dart';
-import '../../commerce/entitlement_service.dart';
-import '../../commerce/feature_gate.dart';
 import '../../ssh/transport/transport.dart';
 import '../../ai/agent/agent_session_manager.dart';
 import '../../ai/agent/server_notes_manager.dart';
@@ -401,22 +399,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                   for (final t in Transport.values)
                     Expanded(
                       child: InkWell(
-                        onTap: () async {
-                          if (t == Transport.quic || t == Transport.mosh) {
-                            final isPro = context
-                                .read<EntitlementService>()
-                                .isPro;
-                            if (!isPro) {
-                              final passed = await FeatureGate.checkOrShow(
-                                context,
-                                reason: 'pro_transport',
-                              );
-                              if (!passed) return;
-                              if (!context.mounted) return;
-                            }
-                          }
-                          _selectTransport(t);
-                        },
+                        onTap: () => _selectTransport(t),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           child: Row(
@@ -424,24 +407,8 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                               Radio<Transport>(
                                 value: t,
                                 groupValue: _transport,
-                                onChanged: (v) async {
-                                  if (v == null) return;
-                                  if (v == Transport.quic ||
-                                      v == Transport.mosh) {
-                                    final isPro = context
-                                        .read<EntitlementService>()
-                                        .isPro;
-                                    if (!isPro) {
-                                      final passed =
-                                          await FeatureGate.checkOrShow(
-                                            context,
-                                            reason: 'pro_transport',
-                                          );
-                                      if (!passed) return;
-                                      if (!context.mounted) return;
-                                    }
-                                  }
-                                  _selectTransport(v);
+                                onChanged: (v) {
+                                  if (v != null) _selectTransport(v);
                                 },
                                 visualDensity: VisualDensity.compact,
                                 materialTapTargetSize:

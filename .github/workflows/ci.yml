@@ -39,13 +39,8 @@ jobs:
           echo "errors: $ERRORS"
           test "$ERRORS" -eq 0
 
-      # 双跑结构。裸跑验开源默认态（全解锁）。
-      - name: Test (open-source defaults)
+      - name: Test
         run: flutter test
-
-      # 带 flag 验商店构建语义 —— 那 3 个 IAP 语义用例只在这一跑里执行。
-      - name: Test (store build semantics)
-        run: flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true
 
   build-android:
     runs-on: ubuntu-latest
