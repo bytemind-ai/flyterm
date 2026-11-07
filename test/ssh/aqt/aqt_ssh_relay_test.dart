@@ -30,6 +30,12 @@ class FakeExec implements AqtRelayExec {
   Future<void> get done => _done.future;
 
   void pushStdout(List<int> bytes) => _stdout.add(Uint8List.fromList(bytes));
+
+  /// What the support probe prints before exiting.
+  void answer(String text) {
+    _stdout.add(Uint8List.fromList(text.codeUnits));
+    _stdout.close();
+  }
   void exitWithStderr(String msg) {
     _stderr.add(Uint8List.fromList(msg.codeUnits));
     _stderr.close();
@@ -116,6 +122,61 @@ void main() {
       throwsA(isA<AqtRelayStartException>()
           .having((e) => e.stderr, 'stderr', contains('not allowed'))),
     );
+  });
+
+  group('startVia', () {
+    const step = Duration(milliseconds: 50);
+
+    test('probe_that_never_answers_times_out_and_is_closed', () async {
+      final probe = FakeExec();
+      await expectLater(
+        AqtSshRelay.startVia((_) async => probe, daemonPort: 1, step: step),
+        throwsA(isA<TimeoutException>()),
+      );
+      expect(probe.closed, isTrue);
+    });
+
+    test('channel_that_opens_late_is_closed', () async {
+      final late = Completer<AqtRelayExec>();
+      await expectLater(
+        AqtSshRelay.startVia((_) => late.future, daemonPort: 1, step: step),
+        throwsA(isA<TimeoutException>()),
+      );
+      final exec = FakeExec();
+      late.complete(exec);
+      await exec.done.timeout(const Duration(seconds: 1));
+      expect(exec.closed, isTrue);
+    });
+
+    test('unsupported_binary_throws_and_closes_probe', () async {
+      final probe = FakeExec()..answer('no\n');
+      await expectLater(
+        AqtSshRelay.startVia((_) async => probe, daemonPort: 1, step: step),
+        throwsA(isA<AqtRelayUnsupportedException>()),
+      );
+      expect(probe.closed, isTrue);
+    });
+
+    test('starts_and_close_runs_onClose', () async {
+      final probe = FakeExec()..answer('yes\n');
+      final exec = FakeExec();
+      final commands = <String>[];
+      var onCloseRan = false;
+      final relay = await AqtSshRelay.startVia(
+        (cmd) async {
+          commands.add(cmd);
+          return commands.length == 1 ? probe : exec;
+        },
+        daemonPort: 61005,
+        step: step,
+        onClose: () => onCloseRan = true,
+      );
+      expect(commands.last, relayExecCommand(61005));
+      expect(probe.closed, isTrue);
+      await relay.close();
+      expect(exec.closed, isTrue);
+      expect(onCloseRan, isTrue);
+    });
   });
 
   test('commands_reference_binary_and_port', () {

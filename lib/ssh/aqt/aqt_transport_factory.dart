@@ -240,10 +240,14 @@ class AqtTransportFactory implements TransportFactory {
           //    (process died via kill -9 / remote reboot without orderly cleanup).
           //    Delete the file and retry once — next probe returns null →
           //    bootstrapDaemonStrict starts a fresh daemon automatically.
+          //    Not when the SSH relay is what failed (old binary, ForceCommand):
+          //    the daemon is alive, and deleting its info would start a
+          //    second one and orphan every session on the first.
           if (quicError != null) {
             if (server.useDaemon &&
                 bootstrapResult.isDaemon &&
-                !triedStaleDaemonClean) {
+                !triedStaleDaemonClean &&
+                relayFailureOf(quicError) == null) {
               triedStaleDaemonClean = true;
               debugPrint(
                 '[AQT] QUIC failed after daemon probe ($quicError) — '
@@ -557,7 +561,7 @@ class AqtTransportFactory implements TransportFactory {
     );
     try {
       return await AqtSshRelay.start(client,
-          daemonPort: daemonPort, ownsClient: true);
+          daemonPort: daemonPort, onClose: client.close);
     } catch (_) {
       client.close();
       rethrow;
@@ -805,6 +809,7 @@ class AqtTransportFactory implements TransportFactory {
     Duration budget = kDefaultResumeTimeout,
     AqtRoute route = AqtRoute.direct,
     Future<AqtSshRelay> Function(int daemonPort)? openRelay,
+    @visibleForTesting Duration relayBudget = const Duration(seconds: 8),
   }) async {
     if (route == AqtRoute.direct) {
       return _resumeEndpoint(host, port, spki, sessionToken, tabId, budget);
@@ -815,7 +820,10 @@ class AqtTransportFactory implements TransportFactory {
     }
     final AqtSshRelay relay;
     try {
-      relay = await openRelay(port).timeout(const Duration(seconds: 8));
+      // closeIfLate: a relay that opens after the budget has no owner — RESUME
+      // already failed — so it is closed instead of left running.
+      relay = await closeIfLate(openRelay(port), relayBudget,
+          onLate: (r) => r.close(), timeoutMessage: 'ssh relay timed out');
     } catch (e) {
       debugPrint('[RESUME] FAIL: ssh relay: $e');
       return AqtResumeFailed(AqtResumeFailReason.networkTimeout,
@@ -1009,12 +1017,23 @@ class AqtTransportFactory implements TransportFactory {
     return routed;
   }
 
+  /// The SSH-relay failure inside [e] — unwrapping [TransportConnectException]
+  /// and [AqtRouteException] — or null when the relay is not what failed.
+  /// These failures are deterministic: retrying will not help.
+  @visibleForTesting
+  static Exception? relayFailureOf(Object? e) => switch (e) {
+        AqtRelayUnsupportedException() || AqtRelayStartException() =>
+          e as Exception,
+        AqtRouteException(:final viaSsh) => relayFailureOf(viaSsh),
+        TransportConnectException(:final cause) => relayFailureOf(cause),
+        _ => null,
+      };
+
   /// A user-facing message for a QUIC connect failure: the SSH-relay
   /// failures get their own copy, everything else its own text.
   static String describeConnectError(BuildContext context, Object e) {
-    final relayError = e is AqtRouteException ? e.viaSsh : e;
     final l = context.l10n;
-    return switch (relayError) {
+    return switch (relayFailureOf(e)) {
       AqtRelayUnsupportedException() => l.aqtRelayUnsupported,
       AqtRelayStartException(:final stderr) => l.aqtRelayStartFailed(stderr),
       _ => '$e',

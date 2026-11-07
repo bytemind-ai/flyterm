@@ -3440,7 +3440,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aqtPortsLabel => 'UDP 端口';
 
   @override
-  String get aqtPortsHint => '留空使用 61001-61999。可填单个端口或范围，需在服务器防火墙/安全组里放行对应的 UDP 端口。';
+  String get aqtPortsHint =>
+      '留空使用 61001-61999。可填单个端口或范围，需在服务器防火墙/安全组里放行对应的 UDP 端口。';
 
   @override
   String get aqtPortsInvalid => '请输入 1024–65535 之间的端口或范围，例如 61001-61999';

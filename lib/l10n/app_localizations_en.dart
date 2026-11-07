@@ -3566,10 +3566,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aqtPortsLabel => 'UDP ports';
 
   @override
-  String get aqtPortsHint => 'Leave empty for 61001-61999. A single port or a range; allow it as UDP in the server firewall / security group.';
+  String get aqtPortsHint =>
+      'Leave empty for 61001-61999. A single port or a range; allow it as UDP in the server firewall / security group.';
 
   @override
-  String get aqtPortsInvalid => 'Enter a port or range between 1024 and 65535, e.g. 61001-61999';
+  String get aqtPortsInvalid =>
+      'Enter a port or range between 1024 and 65535, e.g. 61001-61999';
 
   @override
   String get aqtPortRestartTitle => 'Restart FlyTerm Server?';
@@ -3599,13 +3601,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aqtViaSshLabel => 'Always use the SSH channel';
 
   @override
-  String get aqtViaSshDesc => 'Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.';
+  String get aqtViaSshDesc =>
+      'Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.';
 
   @override
   String get aqtRouteViaSshTooltip => 'QUIC · via SSH channel';
 
   @override
-  String get aqtRelayUnsupported => 'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.';
+  String get aqtRelayUnsupported =>
+      'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.';
 
   @override
   String aqtRelayStartFailed(String error) {

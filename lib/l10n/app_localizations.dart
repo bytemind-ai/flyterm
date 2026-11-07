@@ -6313,7 +6313,7 @@ abstract class AppLocalizations {
   /// No description provided for @aqtRelayUnsupported.
   ///
   /// In en, this message translates to:
-  /// **'The server's flyterm-server is too old for the SSH channel. Please upgrade it.'**
+  /// **'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.'**
   String get aqtRelayUnsupported;
 
   /// No description provided for @aqtRelayStartFailed.
