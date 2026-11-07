@@ -38,6 +38,20 @@ If a daemon is already running on a port outside the new setting, FlyTerm asks
 before restarting it: a restart ends every AQT session on that host, including
 ones on other devices.
 
+### When UDP is blocked
+
+If the UDP ports can't be reached (a cloud host that only opens port 22, or
+a network that blocks UDP), FlyTerm falls back automatically: it tunnels the
+QUIC connection through the SSH connection it already has, so session
+restore and notifications keep working. The status dot's tooltip and the
+server list then show `QUIC·SSH`, and a one-time notice suggests opening the
+UDP range for lower latency.
+
+To skip the UDP attempt, turn on **Always use the SSH channel** in the
+server's QUIC settings. The cost of the SSH channel: QUIC over TCP is slower
+on lossy links, and after a network change FlyTerm re-establishes SSH and
+restores the session instead of migrating the connection.
+
 ## Step 3: Configure in FlyTerm
 
 1. Edit server → transport **QUIC** (keep **Daemon mode** on)
@@ -52,9 +66,9 @@ The status indicator shows `QUIC` when active.
 → Run the install script above on the remote host.
 
 **"QUIC connect timed out … Allow UDP 61001-61999 …"**
-→ The UDP port is not reachable: open the range from Step 2 in the server
-firewall / security group. If your current network blocks UDP entirely, switch
-the server to the SSH transport for now.
+→ Neither direct UDP nor the SSH channel worked; the message lists both
+reasons. Usually UDP is closed *and* the server's flyterm-server is older than
+0.4.0 (no SSH channel) — reconnect to let FlyTerm upgrade it.
 
 **File transfer icon not visible**
 → QUIC connection is required. Icon only appears on QUIC sessions.

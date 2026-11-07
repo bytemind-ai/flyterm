@@ -3594,4 +3594,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String aqtFellBackToSsh(String ports) {
     return 'UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP $ports for lower latency.';
   }
+
+  @override
+  String get aqtViaSshLabel => 'Always use the SSH channel';
+
+  @override
+  String get aqtViaSshDesc => 'Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.';
+
+  @override
+  String get aqtRouteViaSshTooltip => 'QUIC · via SSH channel';
+
+  @override
+  String get aqtRelayUnsupported => 'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.';
+
+  @override
+  String aqtRelayStartFailed(String error) {
+    return 'Could not set up the SSH channel: $error';
+  }
 }

@@ -6291,6 +6291,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP {ports} for lower latency.'**
   String aqtFellBackToSsh(String ports);
+
+  /// No description provided for @aqtViaSshLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Always use the SSH channel'**
+  String get aqtViaSshLabel;
+
+  /// No description provided for @aqtViaSshDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.'**
+  String get aqtViaSshDesc;
+
+  /// No description provided for @aqtRouteViaSshTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'QUIC · via SSH channel'**
+  String get aqtRouteViaSshTooltip;
+
+  /// No description provided for @aqtRelayUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'The server's flyterm-server is too old for the SSH channel. Please upgrade it.'**
+  String get aqtRelayUnsupported;
+
+  /// No description provided for @aqtRelayStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not set up the SSH channel: {error}'**
+  String aqtRelayStartFailed(String error);
 }
 
 class _AppLocalizationsDelegate

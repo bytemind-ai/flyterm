@@ -2315,5 +2315,17 @@
         "type": "String"
       }
     }
+  },
+  "aqtViaSshLabel": "Always use the SSH channel",
+  "aqtViaSshDesc": "Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.",
+  "aqtRouteViaSshTooltip": "QUIC · via SSH channel",
+  "aqtRelayUnsupported": "The server's flyterm-server is too old for the SSH channel. Please upgrade it.",
+  "aqtRelayStartFailed": "Could not set up the SSH channel: {error}",
+  "@aqtRelayStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
   }
 }

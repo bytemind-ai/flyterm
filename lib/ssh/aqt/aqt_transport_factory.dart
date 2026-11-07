@@ -219,50 +219,16 @@ class AqtTransportFactory implements TransportFactory {
           Object? quicError;
           final hsSw = Stopwatch()..start();
           final info = bootstrapResult.info;
-          final ports = AqtPortSpec.forServer(server.aqtPorts);
           try {
-            routed = await connectWithRoute<AqtTransport>(
-              forceViaSsh: server.aqtViaSsh,
-              cached: AqtRouteCache.instance.get(server.id),
-              direct: () => closeIfLate(
-                AqtTransport.connect(host: server.host, bootstrap: info),
-                const Duration(seconds: 4),
-                onLate: (t) => t.close(),
-                timeoutMessage: 'QUIC connect timed out — UDP port '
-                    '${info.port} unreachable? Allow UDP $ports in the '
-                    'server firewall / security group',
-              ),
-              viaSsh: () async {
-                final relay =
-                    await AqtSshRelay.start(client, daemonPort: info.port);
-                try {
-                  final t = await closeIfLate(
-                    AqtTransport.connect(
-                      host: '127.0.0.1',
-                      bootstrap: info.withPort(relay.localPort),
-                    ),
-                    const Duration(seconds: 8),
-                    onLate: (t) => t.close(),
-                    timeoutMessage: 'QUIC over the SSH relay timed out',
-                  );
-                  t.attachRelay(
-                    route: AqtRoute.viaSsh,
-                    relay: relay,
-                    // The relay rides this SSH connection: when we opened
-                    // it, the transport now owns it (closed with the
-                    // transport instead of below).
-                    ownedSshClient: clientOwned ? client : null,
-                    daemonPort: info.port,
-                  );
-                  return t;
-                } catch (_) {
-                  await relay.close();
-                  rethrow;
-                }
-              },
+            routed = await connectRouted(
+              server: server,
+              client: client,
+              info: info,
+              // The relay rides this SSH connection: when we opened it, the
+              // transport now owns it (closed with the transport, not below).
+              ownsClient: clientOwned,
             );
             transport = routed.value;
-            AqtRouteCache.instance.set(server.id, routed.route);
             handshakeMs = hsSw.elapsedMilliseconds;
           } catch (e) {
             quicError = e;
@@ -301,15 +267,7 @@ class AqtTransportFactory implements TransportFactory {
           //    sessions which never use the AI panel don't carry an idle SSH
           //    connection for their whole lifetime.
           if (clientOwned && routed!.route == AqtRoute.direct) client.close();
-          if (routed!.autoFellBack &&
-              dialogContext != null &&
-              dialogContext.mounted &&
-              AqtRouteCache.instance.markFallbackNotified(server.id)) {
-            ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(
-              content: Text(dialogContext.l10n.aqtFellBackToSsh(ports.arg)),
-              duration: const Duration(seconds: 6),
-            ));
-          }
+          notifyFallback(routed!, server, dialogContext);
           transport!.lastConnectTimings = ConnectTimings(
             tcpMs: tcpMs,
             authMs: authMs,
@@ -992,6 +950,92 @@ class AqtTransportFactory implements TransportFactory {
 
   static String _hex4(List<int> bytes) =>
       bytes.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
+
+  /// QUIC to the daemon described by [info], picking the route (see
+  /// [AqtRoute]): direct UDP first (4 s), then QUIC over an SSH exec channel
+  /// on [client] — unless [server] is set to always use the SSH channel or
+  /// this run already found UDP blocked for it. The result is cached per
+  /// server for this run. With [ownsClient], a relayed transport takes
+  /// [client] over and closes it with itself.
+  static Future<AqtRouteOutcome<AqtTransport>> connectRouted({
+    required Server server,
+    required SSHClient client,
+    required AqtBootstrapInfo info,
+    required bool ownsClient,
+    int cols = 80,
+    int rows = 24,
+  }) async {
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    final routed = await connectWithRoute<AqtTransport>(
+      forceViaSsh: server.aqtViaSsh,
+      cached: AqtRouteCache.instance.get(server.id),
+      direct: () => closeIfLate(
+        AqtTransport.connect(
+            host: server.host, bootstrap: info, cols: cols, rows: rows),
+        const Duration(seconds: 4),
+        onLate: (t) => t.close(),
+        timeoutMessage: 'QUIC connect timed out — UDP port ${info.port} '
+            'unreachable? Allow UDP $ports in the server firewall / '
+            'security group',
+      ),
+      viaSsh: () async {
+        final relay = await AqtSshRelay.start(client, daemonPort: info.port);
+        try {
+          final t = await closeIfLate(
+            AqtTransport.connect(
+              host: '127.0.0.1',
+              bootstrap: info.withPort(relay.localPort),
+              cols: cols,
+              rows: rows,
+            ),
+            const Duration(seconds: 8),
+            onLate: (t) => t.close(),
+            timeoutMessage: 'QUIC over the SSH relay timed out',
+          );
+          t.attachRelay(
+            route: AqtRoute.viaSsh,
+            relay: relay,
+            ownedSshClient: ownsClient ? client : null,
+            daemonPort: info.port,
+          );
+          return t;
+        } catch (_) {
+          await relay.close();
+          rethrow;
+        }
+      },
+    );
+    AqtRouteCache.instance.set(server.id, routed.route);
+    return routed;
+  }
+
+  /// A user-facing message for a QUIC connect failure: the SSH-relay
+  /// failures get their own copy, everything else its own text.
+  static String describeConnectError(BuildContext context, Object e) {
+    final relayError = e is AqtRouteException ? e.viaSsh : e;
+    final l = context.l10n;
+    return switch (relayError) {
+      AqtRelayUnsupportedException() => l.aqtRelayUnsupported,
+      AqtRelayStartException(:final stderr) => l.aqtRelayStartFailed(stderr),
+      _ => '$e',
+    };
+  }
+
+  /// The one-time "UDP unavailable, using the SSH channel" notice after an
+  /// automatic fallback (once per server per run).
+  static void notifyFallback(
+    AqtRouteOutcome<AqtTransport> routed,
+    Server server,
+    BuildContext? context,
+  ) {
+    if (!routed.autoFellBack || context == null || !context.mounted) return;
+    if (!AqtRouteCache.instance.markFallbackNotified(server.id)) return;
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.l10n.aqtFellBackToSsh(ports.arg)),
+      duration: const Duration(seconds: 6),
+    ));
+  }
 
   /// Bootstraps flyterm-server for [server]: daemon or once mode, on the
   /// server's configured UDP port range.

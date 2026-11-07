@@ -343,6 +343,36 @@ a snapshot taken while a full-screen program is running restores correctly.
 
 ---
 
+### SSH relay (when UDP is blocked)
+
+When the daemon's UDP port is unreachable (only port 22 open, or the phone's
+network drops UDP), AQT does not change protocol — it changes carrier. The
+App opens an SSH exec channel running `flyterm-server --relay <daemon port>`
+(`rust/flyterm-server/src/relay.rs`) and a local UDP socket on 127.0.0.1
+(`AqtSshRelay`, `lib/ssh/aqt/aqt_ssh_relay.dart`); the QUIC client dials the
+local socket and every datagram crosses the channel as one frame, `u16
+big-endian length + packet`. The relay is stateless and exits when the
+channel closes, so TLS/SPKI pinning, streams, RESUME and Notify all run end
+to end and the daemon simply sees a 127.0.0.1 peer.
+
+- **Route.** `AqtRoute.direct | viaSsh`, decided on a server's first
+  connection in an app run (direct for 4 s, then the relay; or the relay
+  straight away with `Server.aqtViaSsh`). Cached per server for the run
+  (`AqtRouteCache`) and persisted per session (`aqt_session_state.via_ssh`),
+  so reconnects and cold-start RESUME take the same route without probing.
+- **Ports.** The persisted port is always the daemon's; the relay's local port
+  only lives as long as its transport (`AqtTransport.attachRelay`).
+- **RESUME** of a relayed session first opens a relay (8 s, outside the RESUME
+  budget) over the tab's auxiliary SSH connection, or over the reconnect
+  path's own SSH client; failure falls back to a full reconnect.
+- **Cost.** QUIC over TCP has head-of-line blocking on lossy links; a network
+  change means a new SSH connection + RESUME instead of QUIC migration.
+- **Known limitation.** The daemon sees every relayed peer as 127.0.0.1, so
+  the (off-by-default) history feature's per-IP session key lumps relayed
+  devices together.
+
+---
+
 ## 5. Notifications and the offline window
 
 A command on the remote host can call `flyterm notify <text>`. In daemon mode,

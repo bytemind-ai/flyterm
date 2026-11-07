@@ -52,6 +52,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
   bool _useDaemon = false;
   String _moshPortRange = '60000:61000';
   String _aqtPorts = '';
+  bool _aqtViaSsh = false;
   bool _agentForwarding = false;
   bool _useJump = false;
   String? _jumpHostId;
@@ -88,6 +89,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
     _useDaemon = s?.useDaemon ?? false;
     _moshPortRange = s?.moshPortRange ?? '60000:61000';
     _aqtPorts = s?.aqtPorts ?? '';
+    _aqtViaSsh = s?.aqtViaSsh ?? false;
     _agentForwarding = s?.agentForwarding ?? false;
     _addressFamily = s?.addressFamily ?? 'auto';
     _transport = s?.transport ?? Transport.quic;
@@ -508,6 +510,21 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                   contentPadding: EdgeInsets.zero,
                 ),
               if (_transport == Transport.quic)
+                SwitchListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  title: Text(l.aqtViaSshLabel),
+                  subtitle: Text(
+                    l.aqtViaSshDesc,
+                    style: const TextStyle(fontSize: 11.5),
+                  ),
+                  value: _aqtViaSsh,
+                  onChanged: (v) => setState(() => _aqtViaSsh = v),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              // The UDP port range is irrelevant when QUIC always goes
+              // through the SSH channel.
+              if (_transport == Transport.quic && !_aqtViaSsh)
                 _field(
                   TextFormField(
                     initialValue: _aqtPorts,
@@ -892,6 +909,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
       transport: _serverType == 'local' ? Transport.ssh : _transport,
       useDaemon: _serverType == 'local' ? false : _useDaemon,
       // 存规范化后的写法（去掉空白）；空 = 默认范围。
+      aqtViaSsh: _serverType == 'local' ? false : _aqtViaSsh,
       aqtPorts: _serverType == 'local' || _aqtPorts.trim().isEmpty
           ? null
           : AqtPortSpec.parse(_aqtPorts)?.arg,

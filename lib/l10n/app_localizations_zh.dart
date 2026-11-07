@@ -3468,4 +3468,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String aqtFellBackToSsh(String ports) {
     return 'UDP 不可用，已改为经由 SSH 通道连接。放行 UDP $ports 可获得更低延迟。';
   }
+
+  @override
+  String get aqtViaSshLabel => '始终走 SSH 通道';
+
+  @override
+  String get aqtViaSshDesc => '跳过 UDP 直连，适合只开放 22 端口的服务器或封了 UDP 的网络；延迟略高。';
+
+  @override
+  String get aqtRouteViaSshTooltip => 'QUIC · 经由 SSH 通道';
+
+  @override
+  String get aqtRelayUnsupported => '服务端版本过旧，不支持 SSH 通道，请升级。';
+
+  @override
+  String aqtRelayStartFailed(String error) {
+    return '无法建立 SSH 通道：$error';
+  }
 }

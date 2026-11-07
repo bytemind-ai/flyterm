@@ -13,6 +13,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   confirm, because that ends every AQT session on the host. flyterm-server
   0.3.0 (`--listen` / `--once-port` accept `START-END`, `--status` reports the
   live session count); older binaries keep using a random port until upgraded.
+- QUIC falls back to the SSH channel when UDP is blocked (only port 22 open,
+  or a network that drops UDP): the QUIC connection is tunnelled through SSH
+  via `flyterm-server --relay` (0.4.0), so session restore and notifications
+  keep working. Decided on a server's first connection per app run and kept
+  for the session; **Always use the SSH channel** skips the UDP attempt. The
+  status dot and server list show `QUIC·SSH` while it is in use.
 
 ## [0.7.0] - 2026-11-06
 
