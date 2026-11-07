@@ -78,7 +78,7 @@ pub struct SessionHandle {
     /// Session token from HELLO_ACK — used for 0-RTT RESUME on reconnect.
     pub session_token: tokio::sync::Mutex<Option<[u8; 32]>>,
     /// Negotiated at HELLO (or read from RESUME_ACK). True ⇒ every PTY recv
-    /// stream is wrapped in a zstd decoder before its bytes become PtyOutput
+    /// stream is wrapped in an LZ4 block decoder before its bytes become PtyOutput
     /// events.
     pub compression_enabled: Mutex<bool>,
     /// 服务端在 RESUME_ACK 里下发的 session TTL（秒）。0 = 还没拿到。

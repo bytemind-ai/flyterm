@@ -179,7 +179,7 @@ impl FrameReader {
 }
 
 /// Spawn a task that reads bytes from `pty_recv`, optionally decompressing
-/// them with zstd, and emits `PtyOutput` events. When `compression` is true,
+/// them, and emits `PtyOutput` events. When `compression` is true,
 /// LZ4 block framing: server sends [u32 BE frame_len][lz4_flex compressed block].
 /// Client reads the length header, reads exactly that many bytes, then
 /// calls lz4_flex::block::decompress_size_prepended() on the block.
@@ -306,7 +306,7 @@ fn spawn_pty_reader(
 async fn do_hello_handshake(h: &SessionHandle, conn: quinn::Connection) -> anyhow::Result<()> {
     let (mut tx, mut rx) = conn.open_bi().await?;
 
-    // Send HELLO. Always advertise CAP_ZSTD — server confirms via server_caps.
+    // Send HELLO. Always advertise CAP_LZ4 — server confirms via server_caps.
     let hello = Hello {
         version: PROTOCOL_VERSION,
         client_id: [0x42; 16],
@@ -799,7 +799,7 @@ async fn do_open_tab(
         }
     });
 
-    // ── 5. Reader: QUIC PTY recv stream → events (zstd-decoded if negotiated)
+    // ── 5. Reader: QUIC PTY recv stream → events (LZ4-decoded if negotiated)
     let evt_tx = h.event_tx.clone();
     let compression = *h.compression_enabled.lock().await;
     spawn_pty_reader(pty_recv, evt_tx, tab_id, compression);
@@ -968,7 +968,7 @@ async fn do_open_tab_v2(
         }
     });
 
-    // ── 5. Reader: QUIC PTY recv stream → events (zstd-decoded if negotiated)
+    // ── 5. Reader: QUIC PTY recv stream → events (LZ4-decoded if negotiated)
     let evt_tx = h.event_tx.clone();
     let compression = *h.compression_enabled.lock().await;
     spawn_pty_reader(pty_recv, evt_tx, tab_id, compression);
@@ -1913,7 +1913,7 @@ async fn do_quic_resume(
         .await
         .insert(new_tab_id, TabHandle { pty_tx: fwd_tx });
 
-    // PTY output reader: QUIC PTY recv stream → events (zstd-aware)
+    // PTY output reader: QUIC PTY recv stream → events (LZ4-aware)
     let evt_tx = h.event_tx.clone();
     let compression = *h.compression_enabled.lock().await;
     spawn_pty_reader(pty_recv, evt_tx, new_tab_id, compression);

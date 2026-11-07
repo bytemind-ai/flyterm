@@ -692,8 +692,8 @@ pub struct ResumeAckTab {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResumeAck {
     pub tabs: Vec<ResumeAckTab>,
-    /// 这条已恢复会话的 server→client PTY 流是否启用了 zstd（原始 HELLO
-    /// 时按 CAP_ZSTD 协商）。客户端据此接上解码器。
+    /// 这条已恢复会话的 server→client PTY 流是否启用了 LZ4（原始 HELLO
+    /// 时按 CAP_LZ4 协商）。客户端据此接上解码器。
     pub compression_enabled: bool,
     /// 服务端的 session TTL。客户端存下来用它判过期 —— 常量在两侧各写一份
     /// 正是「服务端 7 天 vs 客户端 110 分钟」那个 bug 的根源。

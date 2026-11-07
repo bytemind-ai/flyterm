@@ -20,6 +20,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   for the session; **Always use the SSH channel** skips the UDP attempt. The
   status dot and server list show `QUIC·SSH` while it is in use.
 
+### Fixed
+- QUIC sessions on hosts whose environment says `LANG=C` / `LC_ALL=C` (common
+  on minimal images) showed CJK text as `???`. flyterm-server now gives the
+  shell a UTF-8 character set (`C.UTF-8`) when the inherited locale is not
+  UTF-8, changing only the variable that decides it — `LANG`, and with it
+  the language programs print messages in, is left alone.
+
 ## [0.7.0] - 2026-11-06
 
 First open-source release. Versioning restarts at 0.7.0; the 2.x entries
