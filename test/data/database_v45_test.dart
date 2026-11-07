@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -59,7 +60,7 @@ void main() {
     await old.insert('aqt_session_state', {
       'tab_id': 't1',
       'port': 61005,
-      'spki': [1, 2, 3],
+      'spki': Uint8List.fromList([1, 2, 3]),
       'saved_at': 1,
     });
     await old.close();
