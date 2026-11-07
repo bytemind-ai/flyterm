@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'aqt_route.dart';
+
 /// secure storage 的最小接口，便于测试替身注入（真机上是 Keychain /
 /// Keystore，单测里换成内存 map，见 `test/ssh/aqt/aqt_session_state_test.dart`
 /// 的 `FakeSecureStore`）。
@@ -104,7 +106,13 @@ class AqtSessionState {
     required this.scrollbackCursor,
     required this.serverTtlSecs,
     required this.savedAt,
+    this.route = AqtRoute.direct,
   });
+
+  /// 这个会话首次连接时探测出的路由。RESUME 以及之后每次重连（包括冷启动）
+  /// 都按它走，不再重新探测。[port] 始终是守护进程端口，不是 relay 的本机
+  /// 端口 —— 存成后者，冷启动后会拿一个早已不存在的本机端口去恢复。
+  final AqtRoute route;
 
   /// 拿不到服务端下发值时的兜底，与 `session.rs` 的 `DEFAULT_SESSION_TTL`
   /// 一致——但权威永远在服务端下发值，这里只是「还没连过一次」时的临时
@@ -137,6 +145,7 @@ class AqtSessionState {
         scrollbackCursor: scrollbackCursor ?? this.scrollbackCursor,
         serverTtlSecs: serverTtlSecs ?? this.serverTtlSecs,
         savedAt: savedAt ?? this.savedAt,
+        route: route,
       );
 }
 
@@ -175,6 +184,7 @@ class AqtSessionStateRepository {
         'scrollback_cursor': s.scrollbackCursor,
         'server_ttl_secs': s.serverTtlSecs,
         'saved_at': s.savedAt.millisecondsSinceEpoch,
+        'via_ssh': s.route == AqtRoute.viaSsh ? 1 : 0,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
@@ -211,6 +221,7 @@ class AqtSessionStateRepository {
       scrollbackCursor: r['scrollback_cursor'] as int,
       serverTtlSecs: r['server_ttl_secs'] as int?,
       savedAt: DateTime.fromMillisecondsSinceEpoch(r['saved_at'] as int),
+      route: (r['via_ssh'] as int? ?? 0) == 1 ? AqtRoute.viaSsh : AqtRoute.direct,
     );
 
     if (s.isExpired) {

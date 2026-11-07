@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flyterm/data/database.dart';
+import 'package:flyterm/ssh/aqt/aqt_route.dart';
 import 'package:flyterm/ssh/aqt/aqt_session_state.dart';
 
 void main() {
@@ -21,6 +22,35 @@ void main() {
   });
 
   tearDown(() async => db.close());
+
+  test('route 往返：经由 SSH 通道的会话恢复时仍走 SSH 通道', () async {
+    await repo.save(AqtSessionState(
+      tabId: 'tab-r',
+      port: 61005,
+      spki: [1],
+      sessionToken: List.filled(32, 1),
+      scrollbackCursor: 0,
+      serverTtlSecs: 604800,
+      savedAt: DateTime.now(),
+      route: AqtRoute.viaSsh,
+    ));
+    final got = await repo.load('tab-r');
+    expect(got!.route, AqtRoute.viaSsh);
+    expect(got.port, 61005, reason: '存的是守护进程端口');
+  });
+
+  test('route 缺省为 direct（老数据没有 via_ssh 列值）', () async {
+    await repo.save(AqtSessionState(
+      tabId: 'tab-d',
+      port: 61005,
+      spki: [1],
+      sessionToken: List.filled(32, 1),
+      scrollbackCursor: 0,
+      serverTtlSecs: 604800,
+      savedAt: DateTime.now(),
+    ));
+    expect((await repo.load('tab-d'))!.route, AqtRoute.direct);
+  });
 
   test('token 存 Keychain，其余存 SQLite —— 但读写只有一个入口', () async {
     await repo.save(AqtSessionState(

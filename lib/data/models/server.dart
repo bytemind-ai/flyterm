@@ -40,6 +40,11 @@ class Server {
   /// server firewall ahead of time; see `aqt_port_spec.dart`.
   final String? aqtPorts;
 
+  /// "Always use the SSH channel": skip the UDP attempt and run QUIC over
+  /// an SSH exec channel from the start (see `aqt_ssh_relay.dart`). For
+  /// hosts that only expose port 22 or networks that block UDP.
+  final bool aqtViaSsh;
+
   /// Last SFTP path browsed for this server. Written every time the user
   /// navigates within the inline SFTP view; read as the starting directory
   /// on the next SFTP open (including after app restart). Null = use HOME.
@@ -84,6 +89,7 @@ class Server {
     // they explicitly want clean teardown.
     this.useDaemon = true,
     this.aqtPorts,
+    this.aqtViaSsh = false,
     this.sftpLastPath,
     this.sftpViewMode = false,
   });
@@ -109,6 +115,7 @@ class Server {
         'connection_strategy': transport.name,
         'use_daemon': useDaemon ? 1 : 0,
         'aqt_ports': aqtPorts,
+        'aqt_via_ssh': aqtViaSsh ? 1 : 0,
       };
 
   factory Server.fromMap(Map<String, dynamic> map) {
@@ -144,6 +151,7 @@ class Server {
       // DEFAULT 1 so this fallback is theoretical for live data.
       useDaemon: (map['use_daemon'] as int? ?? 1) == 1,
       aqtPorts: map['aqt_ports'] as String?,
+      aqtViaSsh: (map['aqt_via_ssh'] as int? ?? 0) == 1,
       sftpLastPath: map['sftp_last_path'] as String?,
       sftpViewMode: (map['sftp_view_mode'] as int? ?? 0) == 1,
     );
@@ -169,6 +177,7 @@ class Server {
     Transport? transport,
     bool? useDaemon,
     String? aqtPorts,
+    bool? aqtViaSsh,
   }) =>
       Server(
         id: id,
@@ -195,5 +204,6 @@ class Server {
         transport: transport ?? this.transport,
         useDaemon: useDaemon ?? this.useDaemon,
         aqtPorts: aqtPorts ?? this.aqtPorts,
+        aqtViaSsh: aqtViaSsh ?? this.aqtViaSsh,
       );
 }

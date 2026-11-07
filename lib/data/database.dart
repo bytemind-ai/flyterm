@@ -4,7 +4,7 @@ import 'package:path/path.dart';
 
 class AppDatabase {
   static const _dbName = 'flyterm.db';
-  static const _dbVersion = 44;
+  static const _dbVersion = 45;
 
   /// [overridePath] 让测试能在一个真实文件上跑升级路径（见
   /// `test/data/database_v38_test.dart`）。生产调用点一律不带它 ——
@@ -47,7 +47,8 @@ class AppDatabase {
         address_family TEXT NOT NULL DEFAULT 'auto',
         connection_strategy TEXT NOT NULL DEFAULT 'quic',
         use_daemon INTEGER NOT NULL DEFAULT 1,
-        aqt_ports TEXT
+        aqt_ports TEXT,
+        aqt_via_ssh INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -173,7 +174,9 @@ class AppDatabase {
         spki BLOB NOT NULL,
         scrollback_cursor INTEGER NOT NULL DEFAULT 0,
         server_ttl_secs INTEGER,
-        saved_at INTEGER NOT NULL
+        saved_at INTEGER NOT NULL,
+        -- 会话首次连接时探测出的路由：0 = UDP 直连，1 = 经由 SSH 通道。
+        via_ssh INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -932,6 +935,13 @@ class AppDatabase {
     if (oldVersion < 44) {
       // AQT daemon 的 UDP 端口段（2026-11-07）。NULL = 默认 61001-61999。
       await _addColumnIfMissing(db, 'servers', 'aqt_ports', 'TEXT');
+    }
+    if (oldVersion < 45) {
+      // 经由 SSH 通道（SSH relay，2026-11-07）。
+      await _addColumnIfMissing(
+          db, 'servers', 'aqt_via_ssh', 'INTEGER NOT NULL DEFAULT 0');
+      await _addColumnIfMissing(
+          db, 'aqt_session_state', 'via_ssh', 'INTEGER NOT NULL DEFAULT 0');
     }
   }
 }
