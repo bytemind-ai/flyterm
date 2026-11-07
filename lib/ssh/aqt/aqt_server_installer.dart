@@ -4,7 +4,8 @@ import '../../util/dlog.dart';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'aqt_bootstrap.dart' show kAqtCongestion;
+import 'aqt_bootstrap.dart' show kAqtCongestion, installListenArg;
+import 'aqt_port_spec.dart';
 
 /// Three-state install result; success/declined/error are mutually exclusive.
 enum AqtInstallStatus { success, declined, error }
@@ -278,6 +279,7 @@ class AqtServerInstaller {
     String arch, {
     required String flytermVersion,
     required String binaryVersion,
+    AqtPortSpec ports = AqtPortSpec.defaults,
     void Function(double progress)? onProgress,
   }) async {
     final sftp = await client.sftp();
@@ -330,14 +332,15 @@ class AqtServerInstaller {
     // Single SSH exec: gunzip + chmod + invoke --install.
     // The .new binary handles everything else internally.
     //
-    // `--congestion` 必须在这里也给一遍：`--install` 会**自己**杀掉旧 daemon
+    // `--congestion` 和 `--listen` 必须在这里也给一遍：`--install` 会**自己**杀掉旧 daemon
     // 再拉起新的，而 App 随后的 bootstrap 探到 daemon.info 就直接复用它 ——
     // 也就是说升级路径上，`bootstrapDaemonStrict` 里那条带 flag 的启动命令
     // 根本没机会执行。装的时候要求什么配置，起起来就得是什么配置。
     final installSession = await client.execute(
       'gunzip -f "$remoteNewGz" && '
       'chmod 755 "$remoteNew" && '
-      '"$remoteNew" --install --congestion $kAqtCongestion',
+      '"$remoteNew" --install ${installListenArg(ports)} '
+      '--congestion $kAqtCongestion',
     );
     final outBuf = StringBuffer();
     final errBuf = StringBuffer();

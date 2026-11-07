@@ -16,30 +16,46 @@ flyterm-server --version
 
 Supports: Linux x86_64 and Linux aarch64.
 
-## Step 2: Choose server mode
+Step 1 is optional: when you first connect over QUIC, FlyTerm offers to
+install flyterm-server for you over SSH (no root needed).
 
-### Mode A: SSH bootstrap (recommended)
+## Step 2: Open the UDP ports
 
-No service needed. FlyTerm spawns a temporary server each connection.
+FlyTerm runs flyterm-server as a per-user daemon (started over SSH, survives
+disconnects) listening on a UDP port in **61001-61999** by default. Allow that
+range in the server's firewall and, on a cloud host, its security group:
 
-Verify:
 ```bash
-ssh user@myserver "flyterm-server --once --bind 127.0.0.1"
-# Should print AQT_VER=1 AQT_PORT=... AQT_PUBKEY=... AQT_TOKEN=...
+sudo ufw allow 61001:61999/udp
 ```
 
-### Mode B: Always-on daemon
+To use other ports, set **UDP ports** in the server's QUIC settings: a single
+port (`60000`) or a range (`60000-60010`), between 1024 and 65535. Several users
+on the same host each get their own daemon, so give a range rather than one
+port if the host is shared.
 
-For persistent scrollback + faster reconnect:
-```bash
-systemctl --user enable --now flyterm-server
-# Opens UDP port 9876. Firewall: sudo ufw allow 9876/udp
-```
+If a daemon is already running on a port outside the new setting, FlyTerm asks
+before restarting it: a restart ends every AQT session on that host, including
+ones on other devices.
+
+### When UDP is blocked
+
+If the UDP ports can't be reached (a cloud host that only opens port 22, or
+a network that blocks UDP), FlyTerm falls back automatically: it tunnels the
+QUIC connection through the SSH connection it already has, so session
+restore and notifications keep working. The status dot's tooltip and the
+server list then show `QUIC·SSH`, and a one-time notice suggests opening the
+UDP range for lower latency.
+
+To skip the UDP attempt, turn on **Always use the SSH channel** in the
+server's QUIC settings. The cost of the SSH channel: QUIC over TCP is slower
+on lossy links, and after a network change FlyTerm re-establishes SSH and
+restores the session instead of migrating the connection.
 
 ## Step 3: Configure in FlyTerm
 
-1. Edit server → **Connection strategy**
-2. Choose `QUIC → SSH fallback` (tries QUIC, falls back to SSH if blocked)
+1. Edit server → transport **QUIC** (keep **Daemon mode** on)
+2. Optionally set **UDP ports** (see Step 2)
 3. Save + connect
 
 The status indicator shows `QUIC` when active.
@@ -49,11 +65,14 @@ The status indicator shows `QUIC` when active.
 **"Server does not have flyterm-server installed"**
 → Run the install script above on the remote host.
 
-**"QUIC handshake timeout — falling back to SSH"**
-→ UDP may be blocked. Some carriers/firewalls block UDP. SSH fallback is automatic.
+**"QUIC connect timed out … Allow UDP 61001-61999 …"**
+→ Neither direct UDP nor the SSH channel worked; the message lists both
+reasons. Usually UDP is closed *and* the server's flyterm-server is older than
+0.4.0 (no SSH channel) — reconnect to let FlyTerm upgrade it.
 
 **File transfer icon not visible**
 → QUIC connection is required. Icon only appears on QUIC sessions.
 
 **Session lost during long disconnect**
-→ Sessions persist 24 hours. Reconnect within 24h to replay scrollback.
+→ The daemon keeps sessions for 7 days; reconnect within that window to
+restore the screen and scrollback.

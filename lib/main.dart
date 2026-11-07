@@ -215,6 +215,8 @@ Future<void> _initApp() async {
   // 这样职责分明：coordinator 决定「发不发」，pool 决定「谁拿到」。多个调用
   // 方合并成一次 RESUME 后只有一条 transport，take 的移交语义保证不会出现
   // 双重所有权。
+  // late：下面的 resume coordinator 要用它开 SSH 通道，而它在更后面才构造。
+  late final ReconnectService reconnectService;
   sessionManager.resumeCoordinator = SessionResumeCoordinator(
     doResume: (tabId) async {
       final st = await aqtSessionStateRepo.load(tabId);
@@ -237,6 +239,8 @@ Future<void> _initApp() async {
         // budget 由这里统一决定，不接受调用方传入 —— 两个不同 budget 的
         // 请求被合并时用谁的？没有好答案。统一之后这个问题不存在。
         budget: const Duration(seconds: 5),
+        route: st.route,
+        openRelay: (p) => reconnectService.openAqtRelay(tab!, p),
       );
       switch (r) {
         case AqtResumeSuccess(:final transport):
@@ -326,7 +330,7 @@ Future<void> _initApp() async {
 
   final sshConnectionPool = SshConnectionPool();
 
-  final reconnectService = ReconnectService(
+  reconnectService = ReconnectService(
     sessionManager,
     storage,
     serverRepo,

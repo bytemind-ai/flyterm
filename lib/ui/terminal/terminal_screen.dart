@@ -73,6 +73,9 @@ import '../../ssh/transport/remote_transport.dart'
     show TransportCapability, TransportKind;
 import '../../ssh/transport/transport.dart';
 import '../../ssh/aqt/aqt_bootstrap.dart';
+import '../../ssh/aqt/aqt_port_spec.dart';
+import '../../ssh/aqt/aqt_route.dart';
+import '../../ssh/aqt/aqt_ssh_relay.dart';
 import '../../ssh/aqt/aqt_server_installer.dart' show AqtInstallStatus;
 import '../../ssh/aqt/aqt_transport_factory.dart' show AqtTransportFactory;
 import '../../ssh/aqt/aqt_transport.dart' show AqtTransport;
@@ -987,14 +990,18 @@ class _TerminalScreenState extends State<TerminalScreen>
               // ignore: use_build_context_synchronously
               mounted ? context : null,
               useDaemon: server.useDaemon,
+              ports: AqtPortSpec.forServer(server.aqtPorts),
             );
 
             // 1. Get current daemon SPKI first (avoids stale once-mode SPKI in RESUME).
             //    Then attempt RESUME with the CORRECT current SPKI.
             try {
-              bootstrapResult = server.useDaemon
-                  ? await bootstrapDaemonStrict(sshClient)
-                  : await bootstrapOnce(sshClient);
+              bootstrapResult = await AqtTransportFactory.bootstrapFor(
+                server,
+                sshClient,
+                // ignore: use_build_context_synchronously
+                confirmContext: mounted ? context : null,
+              );
             } catch (_) {}
 
             if (staleTransport is AqtTransport && bootstrapResult != null) {
@@ -1004,7 +1011,10 @@ class _TerminalScreenState extends State<TerminalScreen>
               staleTransport.lastPort = bootstrapResult.info.port;
               try {
                 final resumed = await AqtTransportFactory.tryResume(
-                    staleTransport, server.host);
+                    staleTransport, server.host,
+                    // Relayed sessions resume through this tab's SSH client.
+                    openRelay: (p) =>
+                        AqtSshRelay.start(sshClient, daemonPort: p));
                 if (resumed != null) {
                   tab.transport = resumed;
                   tab.clearRemoteTuiHintForNewTransport();
@@ -1030,6 +1040,8 @@ class _TerminalScreenState extends State<TerminalScreen>
                     final resumed = await AqtTransportFactory.tryResume(
                       staleTransport,
                       server.host,
+                      openRelay: (p) =>
+                          AqtSshRelay.start(sshClient, daemonPort: p),
                     );
                     if (resumed != null) {
                       tab.transport = resumed;
@@ -1053,9 +1065,12 @@ class _TerminalScreenState extends State<TerminalScreen>
             var triedInstall = false;
             while (!quicConnected && bootstrapResult == null) {
               try {
-                bootstrapResult = server.useDaemon
-                    ? await bootstrapDaemonStrict(sshClient)
-                    : await bootstrapOnce(sshClient);
+                // No confirmContext: the port-restart question (if any) was
+                // already asked by the first bootstrap above.
+                bootstrapResult = await AqtTransportFactory.bootstrapFor(
+                  server,
+                  sshClient,
+                );
               } on AqtServerNotInstalledException {
                 if (triedInstall || !mounted) {
                   dlog('AQT', 'server not installed, no install prompt '
@@ -1081,20 +1096,28 @@ class _TerminalScreenState extends State<TerminalScreen>
               }
             }
             if (!quicConnected && bootstrapResult != null) try {
-              final aqtTransport = await AqtTransport.connect(
-                host: server.host,
-                bootstrap: bootstrapResult.info,
+              // Same routing as the factory: direct UDP, else QUIC over
+              // this tab's SSH client (not owned: it lives with the tab).
+              final routed = await AqtTransportFactory.connectRouted(
+                server: server,
+                client: sshClient,
+                info: bootstrapResult.info,
+                ownsClient: false,
                 cols: cols,
                 rows: rows,
               );
-              tab.transport = aqtTransport;
+              tab.transport = routed.value;
               tab.clearRemoteTuiHintForNewTransport();
               quicConnected = true;
+              if (mounted) {
+                AqtTransportFactory.notifyFallback(routed, server, context);
+              }
             } catch (e) {
               dlog('AQT', 'QUIC connect failed: $e');
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(context.l10n.quicConnectFailedHint('$e')),
+                  content: Text(context.l10n.quicConnectFailedHint(
+                      AqtTransportFactory.describeConnectError(context, e))),
                   duration: const Duration(seconds: 8),
                   backgroundColor: Colors.orange[800],
                 ));
@@ -3705,6 +3728,11 @@ class _TabBarState extends State<_TabBar> {
                         isDisconnected: tab.connectionError != null,
                         isReconnecting: tab.isReconnecting,
                         isStable: tab.networkStability.isStable,
+                        tooltip: tab.transport is AqtTransport &&
+                                (tab.transport as AqtTransport).route ==
+                                    AqtRoute.viaSsh
+                            ? context.l10n.aqtRouteViaSshTooltip
+                            : null,
                       ),
                       const SizedBox(width: 4),
                       ConstrainedBox(
@@ -4055,9 +4083,14 @@ class StatusDot extends StatefulWidget {
     required this.isDisconnected,
     required this.isReconnecting,
     required this.isStable,
+    this.tooltip,
   });
 
   final DotProtocol protocol;
+
+  /// Shown on long-press / hover — e.g. that this QUIC session runs through
+  /// the SSH channel. Null = no tooltip.
+  final String? tooltip;
 
   /// True when the tab has never successfully connected and no error has
   /// occurred yet (建连前 / pristine state).  Shows a light grey dot.
@@ -4143,8 +4176,10 @@ class _StatusDotState extends State<StatusDot>
       height: 6,
       decoration: BoxDecoration(shape: BoxShape.circle, color: _color),
     );
-    if (!widget.isReconnecting) return dot;
-    return FadeTransition(opacity: _opacity, child: dot);
+    final shown =
+        widget.isReconnecting ? FadeTransition(opacity: _opacity, child: dot) : dot;
+    final tip = widget.tooltip;
+    return tip == null ? shown : Tooltip(message: tip, child: shown);
   }
 }
 

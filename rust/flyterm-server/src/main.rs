@@ -20,6 +20,18 @@ fn pid_alive(pid: i32) -> bool {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // --relay: a pipe between the SSH channel (stdin/stdout) and the local
+    // daemon. No state dir, no logging setup, nothing else.
+    if let Some(port) = cli.relay {
+        if let Err(e) =
+            flyterm_server::relay::run(port, tokio::io::stdin(), tokio::io::stdout()).await
+        {
+            eprintln!("relay: {e:#}");
+            std::process::exit(2);
+        }
+        return Ok(());
+    }
+
     // Resolve state_dir early — needed for both --status and daemon mode.
     let state_dir = cli.state_dir.clone().unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
@@ -33,7 +45,9 @@ async fn main() -> Result<()> {
     if cli.status {
         let info_path = state_dir.join("daemon.info");
         if let Ok(content) = std::fs::read_to_string(&info_path) {
-            match flyterm_server::bootstrap::daemon_info_if_alive(&content, pid_alive) {
+            let sessions = std::fs::read_to_string(state_dir.join("daemon.sessions")).ok();
+            match flyterm_server::bootstrap::status_output(&content, sessions.as_deref(), pid_alive)
+            {
                 Some(s) => print!("{s}"),
                 None => {
                     // Stale: remove so future probes (and find_old_daemon) agree
@@ -52,7 +66,9 @@ async fn main() -> Result<()> {
     // Must run before the daemon-init code path; doesn't write daemon.info
     // itself (the spawned child does that).
     if cli.install {
-        return match flyterm_server::installer::run(cli.congestion) {
+        // 不带 --listen 时沿用随机口（0），与不认识端口段的旧版 App 行为一致。
+        let ports = cli.listen.unwrap_or(flyterm_server::cli::PortSpec::ANY);
+        return match flyterm_server::installer::run(cli.congestion, ports) {
             Ok(()) => Ok(()),
             Err(e) => {
                 println!("INSTALL_ERR reason={e}");
@@ -128,14 +144,11 @@ async fn main() -> Result<()> {
         RunMode::Once => tls::generate_ephemeral()?,
     };
 
-    let port = match mode {
-        RunMode::Once => cli.once_port.unwrap_or(0),
-        RunMode::Daemon { port } => port,
+    let ports = match mode {
+        RunMode::Once => cli.once_port.unwrap_or(flyterm_server::cli::PortSpec::ANY),
+        RunMode::Daemon { ports } => ports,
     };
-    let bind_addr: std::net::SocketAddr = format!("{}:{}", cli.bind, port)
-        .parse()
-        .map_err(|e| anyhow::anyhow!("invalid bind addr: {e}"))?;
-    let ep = endpoint::build_endpoint(bind_addr, &tls_material, cli.congestion)?;
+    let ep = endpoint::build_endpoint_in(&cli.bind, ports, &tls_material, cli.congestion)?;
     let local = ep.local_addr;
 
     let store = session::SessionStore::new(cli.max_sessions, session::DEFAULT_SESSION_TTL);
@@ -214,6 +227,25 @@ async fn main() -> Result<()> {
             std::fs::write(&info_path, &info_content)
                 .unwrap_or_else(|e| log::warn!("failed to write daemon.info: {e}"));
             log::info!("daemon.info written to {}", info_path.display());
+
+            // 活跃会话数，供 `--status` 报给 App（改端口要重启 daemon 时，
+            // 提示用户会中断几个会话）。先写临时文件再 rename，`--status`
+            // 不会读到写了一半的内容；最多滞后一个周期。
+            {
+                let store = store.clone();
+                let path = state_dir.join("daemon.sessions");
+                let tmp = state_dir.join("daemon.sessions.tmp");
+                tokio::spawn(async move {
+                    let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
+                    loop {
+                        tick.tick().await;
+                        let line = flyterm_server::bootstrap::sessions_line(store.count().await);
+                        if std::fs::write(&tmp, line).is_ok() {
+                            let _ = std::fs::rename(&tmp, &path);
+                        }
+                    }
+                });
+            }
 
             // 本地通知投递入口。绑定失败只记警告不致命——通知是附加功能，
             // 不该让整个 daemon 起不来。只在 daemon 模式绑定：once 模式是
@@ -315,6 +347,7 @@ async fn main() -> Result<()> {
     // Clean up daemon.info on orderly exit so stale port/spki don't confuse
     // future --status probes. Best-effort: failure is non-fatal.
     if matches!(mode, RunMode::Daemon { .. }) {
+        let _ = std::fs::remove_file(state_dir.join("daemon.sessions"));
         let info_path = state_dir.join("daemon.info");
         if let Err(e) = std::fs::remove_file(&info_path) {
             log::warn!("failed to remove daemon.info on exit: {e}");

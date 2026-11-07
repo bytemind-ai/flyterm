@@ -7,10 +7,13 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show VoidCallback, visibleForTesting;
 import 'package:flutter/widgets.dart' show WidgetsBinding;
+import 'package:dartssh2/dartssh2.dart' show SSHClient;
 
 import '../transport/remote_transport.dart';
 import 'aqt_bootstrap.dart';
 import 'aqt_ffi.dart';
+import 'aqt_route.dart';
+import 'aqt_ssh_relay.dart';
 import 'file_transfer/aqt_file_handle.dart';
 import 'file_transfer/sha256_streaming.dart';
 
@@ -405,6 +408,32 @@ class AqtTransport implements RemoteTransport {
   // --- Public getters for 0-RTT reconnect ---
   String? get lastHost => _lastHost;
   int? get lastPort => _lastPort;
+
+  AqtRoute _route = AqtRoute.direct;
+  AqtSshRelay? _relay;
+  SSHClient? _ownedSshClient;
+
+  /// How this transport reaches its daemon (see [AqtRoute]).
+  AqtRoute get route => _route;
+
+  /// Marks this transport as running through an SSH relay (or not) and hands
+  /// it what must live exactly as long as the QUIC connection: the [relay]
+  /// and, on a first connect, the SSH connection it rides on
+  /// ([ownedSshClient]). Both are closed by [close].
+  ///
+  /// [daemonPort] replaces [lastPort]: the QUIC client dialed the relay's
+  /// local port, but what is persisted for RESUME must be the daemon's.
+  void attachRelay({
+    required AqtRoute route,
+    AqtSshRelay? relay,
+    SSHClient? ownedSshClient,
+    int? daemonPort,
+  }) {
+    _route = route;
+    _relay = relay;
+    _ownedSshClient = ownedSshClient;
+    if (daemonPort != null) _lastPort = daemonPort;
+  }
   Uint8List? get lastSpki => _lastSpki;
   Uint8List? get sessionToken => _sessionToken;
   int? get lastTabId => _tabId;
@@ -1034,6 +1063,14 @@ class AqtTransport implements RemoteTransport {
     final h = _handle;
     _handle = null;
     if (h != null) AqtFfi.close(h);
+    // The relay (and the SSH connection it rides on) exist only for this
+    // QUIC connection; closing them also ends the remote --relay process.
+    final relay = _relay;
+    _relay = null;
+    unawaited(relay?.close());
+    final ssh = _ownedSshClient;
+    _ownedSshClient = null;
+    ssh?.close();
     _setState(TransportState.closed);
     if (!_done.isCompleted) _done.complete();
     if (!_stateCtrl.isClosed) await _stateCtrl.close();

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 
 import '../legacy_path_migration.dart';
+import 'aqt_port_spec.dart';
 
 /// Parsed info from flyterm-server bootstrap stdout.
 class AqtBootstrapInfo {
@@ -12,12 +13,27 @@ class AqtBootstrapInfo {
   final int port;
   final Uint8List spki;
   final Uint8List token;
+
+  /// daemon 当前的活跃会话数（`--status` 的 `AQT_SESSIONS`）。旧版服务端
+  /// 不报这个数，或 once 模式，都是 null。只用于「重启会中断几个会话」的提示。
+  final int? sessions;
+
   const AqtBootstrapInfo({
     required this.version,
     required this.port,
     required this.spki,
     required this.token,
+    this.sessions,
   });
+
+  /// The same info aimed at another port — the SSH relay's local one.
+  AqtBootstrapInfo withPort(int newPort) => AqtBootstrapInfo(
+        version: version,
+        port: newPort,
+        spki: spki,
+        token: token,
+        sessions: sessions,
+      );
 }
 
 /// Bootstrap result: holds the parsed info AND (optionally) the SSH session.
@@ -94,27 +110,44 @@ class AqtDaemonStartFailedException implements Exception {
 Future<AqtBootstrapResult> bootstrapOnce(
   SSHClient client, {
   String term = 'xterm-256color',
+  AqtPortSpec ports = AqtPortSpec.defaults,
 }) =>
-    bootstrapAqtServer(client, term: term);
+    bootstrapAqtServer(client, term: term, ports: ports);
 
 /// Daemon-strict bootstrap.
 ///
 /// Used when `Server.useDaemon == true`. Flow:
 /// 1. Probe `flyterm-server --status` (5s budget). If daemon already running,
 ///    reuse its port + spki.
-/// 2. Otherwise exec `nohup flyterm-server --listen 0 …` to start daemon, then
-///    poll via `--status` which reads `~/.flyterm-server/daemon.info` (5s budget, 250 ms interval).
+/// 2. Otherwise exec `nohup flyterm-server --listen <ports> …` to start daemon,
+///    then poll via `--status` which reads `~/.flyterm-server/daemon.info` (5s
+///    budget, 250 ms interval).
 /// 3. If daemon.info never appears, throw [AqtDaemonStartFailedException] —
 ///    strict mode does NOT fall back to once. Caller (UI) surfaces the error
 ///    and asks user to either unblock UDP or uncheck Daemon mode.
+///
+/// [ports]: the UDP port range the daemon should listen on. A daemon that is
+/// already running outside that range (the setting changed after it started)
+/// can only move by restarting, which ends every AQT session on the host —
+/// including other devices'. So [confirmRestart] asks the user first, given
+/// the running daemon (its port and live session count); declining (or no
+/// callback, e.g. background reconnects) keeps using it on its old port.
 Future<AqtBootstrapResult> bootstrapDaemonStrict(
   SSHClient client, {
   String term = 'xterm-256color',
+  AqtPortSpec ports = AqtPortSpec.defaults,
+  Future<bool> Function(AqtBootstrapInfo running)? confirmRestart,
 }) async {
   // ── Step 1: probe existing daemon ──
   final existing = await _probeDaemon(client);
   if (existing != null) {
-    return AqtBootstrapResult._(existing, null, isDaemon: true);
+    final restart = daemonPortMismatch(existing, ports) &&
+        confirmRestart != null &&
+        await confirmRestart(existing);
+    if (!restart) {
+      return AqtBootstrapResult._(existing, null, isDaemon: true);
+    }
+    await killDaemon(client);
   }
 
   // ── Step 2: start daemon via setsid + nohup ──
@@ -127,7 +160,9 @@ Future<AqtBootstrapResult> bootstrapDaemonStrict(
   // closed fd 0 can be reused by libc opens, redirecting unexpected writes
   // into the wrong file).
   // disown removes from the SSH shell's job table.
-  // --listen 0 = random port; server writes daemon.info with chosen port.
+  // --listen <ports>: the server picks a free port in the range and writes
+  // it to daemon.info. See buildDaemonSpawnCommand for the old-binary
+  // fallback.
   //
   // unset TMUX*/TERM_PROGRAM*: SSH exec runs under the user's login shell,
   // which may auto-attach tmux in ~/.bashrc. Without scrubbing, the daemon
@@ -145,19 +180,14 @@ Future<AqtBootstrapResult> bootstrapDaemonStrict(
   // also have no overarching timeout for daemon-mode bootstrap, so the
   // entire reconnect loop wedges and the periodic ticker can't help
   // (the _reconnecting lock stays held).
-  await client.execute(
-    r'BIN="$HOME/.flyterm-server/bin/flyterm-server"; '
-    r'[ -x "$BIN" ] || BIN=/usr/local/bin/flyterm-server; '
-    r'STATE="$HOME/.flyterm-server/state"; mkdir -p "$STATE"; '
-    r'unset TMUX TMUX_PANE TERM_PROGRAM TERM_PROGRAM_VERSION; '
-    'setsid nohup "\$BIN" --listen 0 --congestion $kAqtCongestion < /dev/null '
-    r'> "$STATE/daemon.log" 2>&1 & disown',
-  ).timeout(
-    const Duration(seconds: 8),
-    onTimeout: () => throw AqtBootstrapException(
-      'daemon spawn exec hung > 8s (SSH half-dead?)',
-    ),
-  );
+  await client
+      .execute(buildDaemonSpawnCommand(ports: ports, congestion: kAqtCongestion))
+      .timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => throw AqtBootstrapException(
+          'daemon spawn exec hung > 8s (SSH half-dead?)',
+        ),
+      );
 
   // ── Step 3: poll daemon.info (true 5 s budget) ──
   // G3: previous loop did `20 × (250ms delay + 5s _probeDaemon timeout)`
@@ -270,7 +300,7 @@ Future<AqtBootstrapInfo?> _probeDaemon(SSHClient client) async {
           in session!.stdout.cast<List<int>>().transform(utf8.decoder)) {
         out.write(chunk);
       }
-      return _parseDaemonInfo(out.toString());
+      return parseDaemonInfo(out.toString());
     })().timeout(const Duration(seconds: 5));
   } on TimeoutException {
     return null;
@@ -280,7 +310,53 @@ Future<AqtBootstrapInfo?> _probeDaemon(SSHClient client) async {
 }
 
 /// Parse `AQT_PORT=<n>\nAQT_PUBKEY=<b64>` from daemon.info / --status output.
-AqtBootstrapInfo? _parseDaemonInfo(String output) {
+/// The shell command that starts the daemon on [ports].
+///
+/// The range is only passed if the remote binary understands it: an older
+/// binary (an upgrade that failed is logged and swallowed, so this can happen)
+/// would not parse `61001-61999` and would silently start in once mode, which
+/// never writes daemon.info. The `--help` text of range-aware binaries
+/// documents `START-END`; anything else gets `--listen 0` (random port), the
+/// behaviour it had before.
+String buildDaemonSpawnCommand({
+  required AqtPortSpec ports,
+  required String congestion,
+}) =>
+    r'BIN="$HOME/.flyterm-server/bin/flyterm-server"; '
+    r'[ -x "$BIN" ] || BIN=/usr/local/bin/flyterm-server; '
+    r'STATE="$HOME/.flyterm-server/state"; mkdir -p "$STATE"; '
+    r'unset TMUX TMUX_PANE TERM_PROGRAM TERM_PROGRAM_VERSION; '
+    'if "\$BIN" --help 2>&1 | grep -q START-END; then P=${ports.arg}; '
+    'else P=0; fi; '
+    'setsid nohup "\$BIN" --listen "\$P" --congestion $congestion < /dev/null '
+    r'> "$STATE/daemon.log" 2>&1 & disown';
+
+/// Whether a running daemon listens outside the configured [ports].
+bool daemonPortMismatch(AqtBootstrapInfo running, AqtPortSpec ports) =>
+    !ports.contains(running.port);
+
+/// The `--listen` argument for `flyterm-server --install`: the binary
+/// restarts the daemon itself, so the range has to be given here too.
+String installListenArg(AqtPortSpec ports) => '--listen ${ports.arg}';
+
+/// Stops the running daemon (SIGTERM, then SIGKILL after ~2 s) and removes
+/// its daemon.info so the next probe starts a fresh one.
+Future<void> killDaemon(SSHClient client) async {
+  try {
+    final kill = await client.execute(
+      r'pkill -f "flyterm-server --listen" 2>/dev/null; '
+      r'for i in 1 2 3 4 5 6 7 8 9 10; do '
+      r'pgrep -f "flyterm-server --listen" >/dev/null 2>&1 || break; '
+      r'sleep 0.2; '
+      r'done; '
+      r'pkill -KILL -f "flyterm-server --listen" 2>/dev/null; '
+      r'rm -f ~/.flyterm-server/daemon.info; true',
+    );
+    await kill.done;
+  } catch (_) {}
+}
+
+AqtBootstrapInfo? parseDaemonInfo(String output) {
   final portMatch =
       RegExp(r'^AQT_PORT=(\d+)$', multiLine: true).firstMatch(output);
   final pubkeyMatch =
@@ -289,6 +365,10 @@ AqtBootstrapInfo? _parseDaemonInfo(String output) {
   if (portMatch == null || pubkeyMatch == null) return null;
   final port = int.tryParse(portMatch.group(1)!);
   if (port == null) return null;
+  final sessionsMatch =
+      RegExp(r'^AQT_SESSIONS=(\d+)$', multiLine: true).firstMatch(output);
+  final sessions =
+      sessionsMatch == null ? null : int.tryParse(sessionsMatch.group(1)!);
   try {
     final spki = base64.decode(_pad(pubkeyMatch.group(1)!));
     // Daemon mode: token is unused at connect time — the server issues a fresh
@@ -298,6 +378,7 @@ AqtBootstrapInfo? _parseDaemonInfo(String output) {
       port: port,
       spki: spki,
       token: Uint8List(32),
+      sessions: sessions,
     );
   } catch (_) {
     return null;
@@ -311,6 +392,7 @@ Future<AqtBootstrapResult> bootstrapAqtServer(
   SSHClient client, {
   String term = 'xterm-256color',
   Duration timeout = const Duration(seconds: 3),
+  AqtPortSpec ports = AqtPortSpec.defaults,
 }) async {
   // Kill only STALE once-mode servers (those without an active QUIC client).
   // Once mode: process exits on SIGHUP when SSH channel closes, so survivors
@@ -336,8 +418,10 @@ Future<AqtBootstrapResult> bootstrapAqtServer(
         r'BIN="$HOME/.flyterm-server/bin/flyterm-server"; '
         r'[ -x "$BIN" ] || BIN=/usr/local/bin/flyterm-server; '
         r'unset TMUX TMUX_PANE TERM_PROGRAM TERM_PROGRAM_VERSION; '
+        // --once-port <range>: an old binary that can't parse the range
+        // ignores it and binds a random port, as before.
         'exec "\$BIN" --once --bind 0.0.0.0 --term $term '
-        '--congestion $kAqtCongestion',
+        '--once-port ${ports.arg} --congestion $kAqtCongestion',
       )
       .timeout(const Duration(seconds: 8),
           onTimeout: () =>

@@ -15,6 +15,7 @@ pub mod notify;
 #[cfg(feature = "persist-sessions")]
 pub mod persistent;
 pub mod pty_task;
+pub mod relay;
 pub mod session;
 pub mod snapshot;
 pub mod tls;

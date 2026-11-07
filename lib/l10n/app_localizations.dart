@@ -6111,6 +6111,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'English'**
   String get promptLanguageName;
+
+  /// No description provided for @aqtPortsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP ports'**
+  String get aqtPortsLabel;
+
+  /// No description provided for @aqtPortsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty for 61001-61999. A single port or a range; allow it as UDP in the server firewall / security group.'**
+  String get aqtPortsHint;
+
+  /// No description provided for @aqtPortsInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a port or range between 1024 and 65535, e.g. 61001-61999'**
+  String get aqtPortsInvalid;
+
+  /// No description provided for @aqtPortRestartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart FlyTerm Server?'**
+  String get aqtPortRestartTitle;
+
+  /// No description provided for @aqtPortRestartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is listening on UDP {current}, outside the configured {ports}. Restarting moves it to the new ports but ends the {sessions} AQT session(s) on this server, including ones on other devices.'**
+  String aqtPortRestartBody(String current, String ports, int sessions);
+
+  /// No description provided for @aqtPortRestartBodyUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is listening on UDP {current}, outside the configured {ports}. Restarting moves it to the new ports but ends every AQT session on this server, including ones on other devices.'**
+  String aqtPortRestartBodyUnknown(String current, String ports);
+
+  /// No description provided for @aqtPortRestartConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart'**
+  String get aqtPortRestartConfirm;
+
+  /// No description provided for @aqtPortRestartKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep current port'**
+  String get aqtPortRestartKeep;
+
+  /// No description provided for @aqtFellBackToSsh.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP {ports} for lower latency.'**
+  String aqtFellBackToSsh(String ports);
+
+  /// No description provided for @aqtViaSshLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Always use the SSH channel'**
+  String get aqtViaSshLabel;
+
+  /// No description provided for @aqtViaSshDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.'**
+  String get aqtViaSshDesc;
+
+  /// No description provided for @aqtRouteViaSshTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'QUIC · via SSH channel'**
+  String get aqtRouteViaSshTooltip;
+
+  /// No description provided for @aqtRelayUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.'**
+  String get aqtRelayUnsupported;
+
+  /// No description provided for @aqtRelayStartFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not set up the SSH channel: {error}'**
+  String aqtRelayStartFailed(String error);
 }
 
 class _AppLocalizationsDelegate

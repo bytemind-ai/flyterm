@@ -8,6 +8,7 @@ import '../../data/models/server.dart';
 import '../../data/repositories/server_repository.dart';
 import '../../ssh/session_manager.dart';
 import '../../ssh/jump_host_resolver.dart';
+import '../../ssh/aqt/aqt_route.dart';
 import '../../ssh/transport/transport.dart' show Transport;
 import '../../data/secure_storage.dart';
 import '../../data/terminal_settings.dart';
@@ -959,6 +960,7 @@ class _ServerRow extends StatelessWidget {
             const SizedBox(width: FlySpace.sm),
             _RowTrailing(
               transport: server.transport,
+              cachedRoute: AqtRouteCache.instance.get(server.id),
               isLocal: isLocal,
               isLocalUnsupported: isLocalUnsupported,
               activeCount: activeTabs.length,
@@ -977,6 +979,7 @@ class _ServerRow extends StatelessWidget {
 class _RowTrailing extends StatelessWidget {
   const _RowTrailing({
     required this.transport,
+    this.cachedRoute,
     required this.isLocal,
     required this.isLocalUnsupported,
     required this.activeCount,
@@ -986,6 +989,9 @@ class _RowTrailing extends StatelessWidget {
   });
 
   final Transport transport;
+
+  /// This run's probed route for the server, if any (see [AqtRouteCache]).
+  final AqtRoute? cachedRoute;
   final bool isLocal;
   final bool isLocalUnsupported;
   final int activeCount;
@@ -1099,15 +1105,12 @@ class _RowTrailing extends StatelessWidget {
     );
   }
 
-  String _protoLabel() {
-    if (isLocalUnsupported) return 'N/A';
-    if (isLocal) return 'LOCAL';
-    return switch (transport) {
-      Transport.ssh => 'SSH',
-      Transport.mosh => 'MOSH',
-      Transport.quic => 'QUIC',
-    };
-  }
+  String _protoLabel() => homeProtoLabel(
+        transport: transport,
+        isLocal: isLocal,
+        isLocalUnsupported: isLocalUnsupported,
+        cachedRoute: cachedRoute,
+      );
 
   /// 协议色与 `TerminalScreen._StatusDot` 同源，避免「列表里 QUIC 一个颜色、
   /// 终端里另一个颜色」的认知错位。
@@ -1176,4 +1179,22 @@ class _EmptyState extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The protocol tag on a server row. `QUIC·SSH` once this run found UDP
+/// blocked for the server and it runs QUIC through the SSH channel.
+@visibleForTesting
+String homeProtoLabel({
+  required Transport transport,
+  required bool isLocal,
+  required bool isLocalUnsupported,
+  AqtRoute? cachedRoute,
+}) {
+  if (isLocalUnsupported) return 'N/A';
+  if (isLocal) return 'LOCAL';
+  return switch (transport) {
+    Transport.ssh => 'SSH',
+    Transport.mosh => 'MOSH',
+    Transport.quic => cachedRoute == AqtRoute.viaSsh ? 'QUIC·SSH' : 'QUIC',
+  };
 }

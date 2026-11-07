@@ -4,6 +4,54 @@ import 'package:flyterm/ssh/transport/transport.dart';
 import 'package:flyterm/ssh/multiplexer/multiplexer_backend.dart';
 
 void main() {
+  group('aqtViaSsh', () {
+    Map<String, dynamic> base() => {
+          'id': 'id1', 'name': 'test', 'host': 'localhost', 'port': 22,
+          'username': 'user', 'auth_type': 'password',
+        };
+
+    test('fromMap：缺字段为 false，1 为 true', () {
+      expect(Server.fromMap(base()).aqtViaSsh, isFalse);
+      expect(Server.fromMap({...base(), 'aqt_via_ssh': 1}).aqtViaSsh, isTrue);
+    });
+
+    test('toMap 写 1/0', () {
+      expect(Server.fromMap({...base(), 'aqt_via_ssh': 1}).toMap()['aqt_via_ssh'], 1);
+      expect(Server.fromMap(base()).toMap()['aqt_via_ssh'], 0);
+    });
+
+    test('copyWith 保留与修改', () {
+      final s = Server.fromMap({...base(), 'aqt_via_ssh': 1});
+      expect(s.copyWith(name: 'x').aqtViaSsh, isTrue);
+      expect(s.copyWith(aqtViaSsh: false).aqtViaSsh, isFalse);
+    });
+  });
+
+  group('aqtPorts', () {
+    Map<String, dynamic> base() => {
+          'id': 'id1', 'name': 'test', 'host': 'localhost', 'port': 22,
+          'username': 'user', 'auth_type': 'password',
+        };
+
+    test('fromMap 读取 aqt_ports；缺失或为空时为 null（用默认范围）', () {
+      expect(Server.fromMap({...base(), 'aqt_ports': '60000-60010'}).aqtPorts,
+          '60000-60010');
+      expect(Server.fromMap(base()).aqtPorts, isNull);
+    });
+
+    test('toMap 写出 aqt_ports', () {
+      final s = Server.fromMap({...base(), 'aqt_ports': '62000'});
+      expect(s.toMap()['aqt_ports'], '62000');
+      expect(Server.fromMap(base()).toMap()['aqt_ports'], isNull);
+    });
+
+    test('copyWith 保留与修改 aqtPorts', () {
+      final s = Server.fromMap({...base(), 'aqt_ports': '62000'});
+      expect(s.copyWith(name: 'x').aqtPorts, '62000');
+      expect(s.copyWith(aqtPorts: '63000-63009').aqtPorts, '63000-63009');
+    });
+  });
+
   test('Server.fromMap 读取 transport=mosh 和 moshPortRange', () {
     final map = {
       'id': 'id1', 'name': 'test', 'host': 'localhost', 'port': 22,

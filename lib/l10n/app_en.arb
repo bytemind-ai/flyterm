@@ -2234,5 +2234,56 @@
   "agentApprovalAlways": "Always allow",
   "agentApprovalRulePrefix": "Always allow",
   "agentApprovalReject": "Reject",
-  "promptLanguageName": "English"
+  "promptLanguageName": "English",
+  "aqtPortsLabel": "UDP ports",
+  "aqtPortsHint": "Leave empty for 61001-61999. A single port or a range; allow it as UDP in the server firewall / security group.",
+  "aqtPortsInvalid": "Enter a port or range between 1024 and 65535, e.g. 61001-61999",
+  "aqtPortRestartTitle": "Restart FlyTerm Server?",
+  "aqtPortRestartBody": "The server is listening on UDP {current}, outside the configured {ports}. Restarting moves it to the new ports but ends the {sessions} AQT session(s) on this server, including ones on other devices.",
+  "@aqtPortRestartBody": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "ports": {
+        "type": "String"
+      },
+      "sessions": {
+        "type": "int"
+      }
+    }
+  },
+  "aqtPortRestartBodyUnknown": "The server is listening on UDP {current}, outside the configured {ports}. Restarting moves it to the new ports but ends every AQT session on this server, including ones on other devices.",
+  "@aqtPortRestartBodyUnknown": {
+    "placeholders": {
+      "current": {
+        "type": "String"
+      },
+      "ports": {
+        "type": "String"
+      }
+    }
+  },
+  "aqtPortRestartConfirm": "Restart",
+  "aqtPortRestartKeep": "Keep current port",
+  "aqtFellBackToSsh": "UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP {ports} for lower latency.",
+  "@aqtFellBackToSsh": {
+    "placeholders": {
+      "ports": {
+        "type": "String"
+      }
+    }
+  },
+  "aqtViaSshLabel": "Always use the SSH channel",
+  "aqtViaSshDesc": "Skip direct UDP. For servers that only expose port 22 or networks that block UDP; slightly higher latency.",
+  "aqtRouteViaSshTooltip": "QUIC · via SSH channel",
+  "aqtRelayUnsupported": "The server's flyterm-server is too old for the SSH channel. Please upgrade it.",
+  "aqtRelayStartFailed": "Could not set up the SSH channel: {error}",
+  "@aqtRelayStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  }
 }

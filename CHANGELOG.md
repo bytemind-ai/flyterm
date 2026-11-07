@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- AQT (QUIC) listens on a fixed UDP port range instead of a random port, so it
+  can be opened in a firewall / security group ahead of time: 61001-61999 by
+  default, configurable per server as **UDP ports** (a port or a range). A
+  daemon already running outside the range is restarted only after you
+  confirm, because that ends every AQT session on the host. flyterm-server
+  0.3.0 (`--listen` / `--once-port` accept `START-END`, `--status` reports the
+  live session count); older binaries keep using a random port until upgraded.
+- QUIC falls back to the SSH channel when UDP is blocked (only port 22 open,
+  or a network that drops UDP): the QUIC connection is tunnelled through SSH
+  via `flyterm-server --relay` (0.4.0), so session restore and notifications
+  keep working. Decided on a server's first connection per app run and kept
+  for the session; **Always use the SSH channel** skips the UDP attempt. The
+  status dot and server list show `QUIC·SSH` while it is in use.
+
 ### Removed
 - In-app purchases and "FlyTerm Pro". The paywall, the Pro status card in
   Settings (and its now-empty Account section), purchase restore and every

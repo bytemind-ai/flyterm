@@ -5,7 +5,8 @@
 | Symptom | Cause | Fix |
 |---|---|---|
 | "flyterm-server not installed" | Binary not on remote PATH | `curl -fsSL URL \| sh` |
-| Handshake timeout → SSH fallback | UDP blocked by carrier/firewall | Use SSH strategy; wait for QUIC v3.2 MASQUE fallback |
+| `QUIC·SSH` shown / slower than usual | UDP is blocked, so QUIC runs through the SSH channel | Allow UDP 61001-61999 (or the server's configured **UDP ports**) for a direct connection |
+| QUIC connect timed out | Both direct UDP and the SSH channel failed (e.g. flyterm-server older than 0.4.0) | Reconnect so FlyTerm can upgrade flyterm-server; check the error for the SSH-channel reason |
 | "Public key mismatch" | Server regenerated keys | For once mode: reconnect (new key each session). For daemon: check server health |
 | "Session token expired" | Offline > 24h | Auto-creates new session on next connect |
 

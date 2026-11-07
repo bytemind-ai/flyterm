@@ -7,6 +7,7 @@ import '../../ssh/reconnect_service.dart';
 import '../../ssh/session_manager.dart';
 import '../../ssh/multiplexer/tmux_backend.dart';
 import '../../ssh/transport/remote_transport.dart';
+import '../../ssh/aqt/aqt_route.dart';
 import '../../ssh/aqt/aqt_transport.dart' show AqtTransport;
 import '../../ssh/aqt/resume_issue_log.dart';
 import '../../ssh/aqt/resume_sample.dart';
@@ -126,7 +127,10 @@ class _DebugOverlayState extends State<DebugOverlay> {
     // reconnect 期间 (tab.transport 被清空) 假装"降级"到 SSH 误导用户。
     // 真正的"SSH-only tab"才显示 SSH (server.transport==Transport.ssh)。
     final proto = switch (t.transport?.kind) {
-      TransportKind.aqt   => 'QUIC',
+      TransportKind.aqt   => (t.transport is AqtTransport &&
+              (t.transport as AqtTransport).route == AqtRoute.viaSsh)
+          ? 'QUIC·SSH'
+          : 'QUIC',
       TransportKind.mosh  => 'Mosh',
       TransportKind.local => 'Local',
       TransportKind.ssh   => 'SSH',

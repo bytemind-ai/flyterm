@@ -4,7 +4,7 @@ import 'package:path/path.dart';
 
 class AppDatabase {
   static const _dbName = 'flyterm.db';
-  static const _dbVersion = 43;
+  static const _dbVersion = 45;
 
   /// [overridePath] 让测试能在一个真实文件上跑升级路径（见
   /// `test/data/database_v38_test.dart`）。生产调用点一律不带它 ——
@@ -46,7 +46,9 @@ class AppDatabase {
         server_type TEXT NOT NULL DEFAULT 'ssh',
         address_family TEXT NOT NULL DEFAULT 'auto',
         connection_strategy TEXT NOT NULL DEFAULT 'quic',
-        use_daemon INTEGER NOT NULL DEFAULT 1
+        use_daemon INTEGER NOT NULL DEFAULT 1,
+        aqt_ports TEXT,
+        aqt_via_ssh INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -172,7 +174,9 @@ class AppDatabase {
         spki BLOB NOT NULL,
         scrollback_cursor INTEGER NOT NULL DEFAULT 0,
         server_ttl_secs INTEGER,
-        saved_at INTEGER NOT NULL
+        saved_at INTEGER NOT NULL,
+        -- 会话首次连接时探测出的路由：0 = UDP 直连，1 = 经由 SSH 通道。
+        via_ssh INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -330,6 +334,10 @@ class AppDatabase {
     String type,
   ) async {
     final cols = await db.rawQuery('PRAGMA table_info($table)');
+    // 表不存在时 PRAGMA 返回空：没有表就没有列可加。真实的库总有这些表，
+    // 但只建了部分表的迁移测试库（如 database_v38_test 的 v37 库没有
+    // servers）会走到这里 —— ALTER 一个不存在的表会让整个升级失败。
+    if (cols.isEmpty) return;
     if (cols.any((c) => c['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
   }
@@ -923,6 +931,17 @@ class AppDatabase {
       await db.execute('DROP TABLE IF EXISTS scheduled_task_runs');
       await db.execute('DROP TABLE IF EXISTS scheduled_deploy_targets');
       await db.execute('DROP TABLE IF EXISTS scheduled_tasks');
+    }
+    if (oldVersion < 44) {
+      // AQT daemon 的 UDP 端口段（2026-11-07）。NULL = 默认 61001-61999。
+      await _addColumnIfMissing(db, 'servers', 'aqt_ports', 'TEXT');
+    }
+    if (oldVersion < 45) {
+      // 经由 SSH 通道（SSH relay，2026-11-07）。
+      await _addColumnIfMissing(
+          db, 'servers', 'aqt_via_ssh', 'INTEGER NOT NULL DEFAULT 0');
+      await _addColumnIfMissing(
+          db, 'aqt_session_state', 'via_ssh', 'INTEGER NOT NULL DEFAULT 0');
     }
   }
 }

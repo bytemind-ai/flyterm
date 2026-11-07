@@ -10,12 +10,17 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:dartssh2/dartssh2.dart' show SSHClient;
 
 import '../../data/models/server.dart';
+import '../../l10n/l10n.dart';
 import '../ssh_connection.dart' show sshConnectForExec;
 import '../transport/remote_transport.dart';
 import '../transport/transport_factory.dart';
 import 'aqt_bootstrap.dart';
 import 'aqt_ffi.dart';
 import 'aqt_install_dialog.dart';
+import 'aqt_port_restart_dialog.dart';
+import 'aqt_port_spec.dart';
+import 'aqt_route.dart';
+import 'aqt_ssh_relay.dart';
 import 'aqt_server_installer.dart';
 import 'aqt_transport.dart';
 
@@ -179,7 +184,12 @@ class AqtTransportFactory implements TransportFactory {
       //    If mismatch (e.g. server lacks compression, new features, bug fixes)
       //    the new binary is uploaded silently (no dialog). If upgrade fails the
       //    old binary is still used — failure is logged and not surfaced.
-      await maybeUpgrade(client, dialogContext, useDaemon: server.useDaemon);
+      await maybeUpgrade(
+        client,
+        dialogContext,
+        useDaemon: server.useDaemon,
+        ports: AqtPortSpec.forServer(server.aqtPorts),
+      );
 
       var triedInstall = false;
       var triedStaleDaemonClean = false;
@@ -190,25 +200,35 @@ class AqtTransportFactory implements TransportFactory {
           //                              never silently falls back to once)
           //    server.useDaemon=false → once mode (default; lightweight)
           final bootSw = Stopwatch()..start();
-          final bootstrapResult = server.useDaemon
-              ? await bootstrapDaemonStrict(client)
-              : await bootstrapOnce(client);
+          final bootstrapResult = await bootstrapFor(
+            server,
+            client,
+            confirmContext: dialogContext,
+          );
           bootMs = bootSw.elapsedMilliseconds;
 
           // 4) QUIC connect — keep bootstrapResult alive until connected.
           //    Close bootstrap channel in ALL exit paths to avoid SSH session leak.
+          //
+          //    Route (see AqtRoute): direct UDP first (4 s), then QUIC over
+          //    an SSH exec channel on this same SSH connection — unless the
+          //    server is set to always use the SSH channel, or this run
+          //    already found UDP blocked for it.
           AqtTransport? transport;
+          AqtRouteOutcome<AqtTransport>? routed;
           Object? quicError;
           final hsSw = Stopwatch()..start();
+          final info = bootstrapResult.info;
           try {
-            transport = await AqtTransport.connect(
-              host: server.host,
-              bootstrap: bootstrapResult.info,
-            ).timeout(
-              const Duration(seconds: 8),
-              onTimeout: () => throw const AqtBootstrapException(
-                  'QUIC connect timed out after bootstrap'),
+            routed = await connectRouted(
+              server: server,
+              client: client,
+              info: info,
+              // The relay rides this SSH connection: when we opened it, the
+              // transport now owns it (closed with the transport, not below).
+              ownsClient: clientOwned,
             );
+            transport = routed.value;
             handshakeMs = hsSw.elapsedMilliseconds;
           } catch (e) {
             quicError = e;
@@ -220,10 +240,14 @@ class AqtTransportFactory implements TransportFactory {
           //    (process died via kill -9 / remote reboot without orderly cleanup).
           //    Delete the file and retry once — next probe returns null →
           //    bootstrapDaemonStrict starts a fresh daemon automatically.
+          //    Not when the SSH relay is what failed (old binary, ForceCommand):
+          //    the daemon is alive, and deleting its info would start a
+          //    second one and orphan every session on the first.
           if (quicError != null) {
             if (server.useDaemon &&
                 bootstrapResult.isDaemon &&
-                !triedStaleDaemonClean) {
+                !triedStaleDaemonClean &&
+                relayFailureOf(quicError) == null) {
               triedStaleDaemonClean = true;
               debugPrint(
                 '[AQT] QUIC failed after daemon probe ($quicError) — '
@@ -246,7 +270,8 @@ class AqtTransportFactory implements TransportFactory {
           //    its own lazily on first tool call (see AgentExecChannel), so that
           //    sessions which never use the AI panel don't carry an idle SSH
           //    connection for their whole lifetime.
-          if (clientOwned) client.close();
+          if (clientOwned && routed!.route == AqtRoute.direct) client.close();
+          notifyFallback(routed!, server, dialogContext);
           transport!.lastConnectTimings = ConnectTimings(
             tcpMs: tcpMs,
             authMs: authMs,
@@ -479,13 +504,23 @@ class AqtTransportFactory implements TransportFactory {
           '(port=${previous.lastPort} tab=${previous.lastTabId})',
         );
       } else {
-        final result = await tryResumeWithInfoDetailedForTest(
-          host: server.host,
-          port: previous.lastPort!,
-          spki: previous.lastSpki!,
-          sessionToken: previous.sessionToken!,
-          tabId: previous.lastTabId!,
-        );
+        final result = previous.route == AqtRoute.viaSsh
+            ? await tryResumeWithInfoDetailed(
+                host: server.host,
+                port: previous.lastPort!,
+                spki: previous.lastSpki!,
+                sessionToken: previous.sessionToken!,
+                tabId: previous.lastTabId!,
+                route: AqtRoute.viaSsh,
+                openRelay: (p) => _relayFromCreds(server, creds, p),
+              )
+            : await tryResumeWithInfoDetailedForTest(
+                host: server.host,
+                port: previous.lastPort!,
+                spki: previous.lastSpki!,
+                sessionToken: previous.sessionToken!,
+                tabId: previous.lastTabId!,
+              );
         if (result is AqtResumeSuccess) return result.transport;
         if (result is AqtResumeFailed &&
             (result.reason == AqtResumeFailReason.sessionNotFound ||
@@ -504,6 +539,35 @@ class AqtTransportFactory implements TransportFactory {
     );
   }
 
+  /// An SSH relay for RESUME on the reconnect path: over the caller's live
+  /// SSH connection when there is one, else over a connection opened just
+  /// for it (owned by the relay, closed with it).
+  Future<AqtSshRelay> _relayFromCreds(
+    Server server,
+    ReconnectCredentials creds,
+    int daemonPort,
+  ) async {
+    final reuse = creds.reuseClient;
+    if (reuse != null && !reuse.isClosed) {
+      return AqtSshRelay.start(reuse, daemonPort: daemonPort);
+    }
+    final client = await sshConnectForExec(
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      password: creds.password,
+      privateKeyPem: creds.privateKeyPem,
+      keyPairs: creds.keyPairs,
+    );
+    try {
+      return await AqtSshRelay.start(client,
+          daemonPort: daemonPort, onClose: client.close);
+    } catch (_) {
+      client.close();
+      rethrow;
+    }
+  }
+
   Future<RemoteTransport> _reconnectRace({
     required Server server,
     required ReconnectCredentials creds,
@@ -511,6 +575,17 @@ class AqtTransportFactory implements TransportFactory {
     BuildContext? dialogContext,
     Future<void> Function()? onPurgeSession,
   }) async {
+    // Relayed sessions need an SSH connection before RESUME can even start,
+    // so racing RESUME against the SSH bootstrap buys nothing: serial.
+    if (previous is AqtTransport && previous.route == AqtRoute.viaSsh) {
+      return _reconnectSerial(
+        server: server,
+        creds: creds,
+        previous: previous,
+        dialogContext: dialogContext,
+        onPurgeSession: onPurgeSession,
+      );
+    }
     // No metadata → race makes no sense; go straight to bootstrap.
     if (previous is! AqtTransport ||
         previous.lastPort == null ||
@@ -649,6 +724,7 @@ class AqtTransportFactory implements TransportFactory {
     String host, {
     int ringTailHash = 0, // FNV-1a hash of last 8 raw bytes for server verification
     Duration budget = kDefaultResumeTimeout,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
   }) async {
     final port = previous.lastPort;
     final spki = previous.lastSpki;
@@ -665,6 +741,8 @@ class AqtTransportFactory implements TransportFactory {
       sessionToken: token,
       tabId: tabId,
       budget: budget,
+      route: previous.route,
+      openRelay: openRelay,
     );
   }
 
@@ -681,6 +759,8 @@ class AqtTransportFactory implements TransportFactory {
     required Uint8List sessionToken,
     required int tabId,
     Duration budget = kDefaultResumeTimeout,
+    AqtRoute route = AqtRoute.direct,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
   }) async {
     final result = await tryResumeWithInfoDetailed(
       host: host,
@@ -689,6 +769,8 @@ class AqtTransportFactory implements TransportFactory {
       sessionToken: sessionToken,
       tabId: tabId,
       budget: budget,
+      route: route,
+      openRelay: openRelay,
     );
     return switch (result) {
       AqtResumeSuccess(:final transport) => transport,
@@ -697,6 +779,27 @@ class AqtTransportFactory implements TransportFactory {
   }
 
   /// Detailed 版本：返回 [AqtResumeResult] 让调用方区分失败原因。
+  /// Test hook replacing the FFI RESUME against one endpoint (host:port).
+  @visibleForTesting
+  static Future<AqtResumeResult> Function({
+    required String host,
+    required int port,
+    required Uint8List spki,
+    required Uint8List sessionToken,
+    required int tabId,
+    required Duration budget,
+  })? resumeEndpointOverride;
+
+  /// RESUME every path funnels through.
+  ///
+  /// [route] is the session's persisted route. For [AqtRoute.viaSsh],
+  /// [openRelay] opens an SSH relay towards the daemon on [port] (the
+  /// caller knows which SSH connection to use); RESUME then dials the
+  /// relay's local port, and the transport takes the relay over. Opening
+  /// the relay has its own 8 s budget, separate from [budget], so a cold
+  /// auxiliary SSH connection gets time to come up. A relay that cannot be
+  /// opened is a failed RESUME, and the caller falls back to a full
+  /// reconnect as for any other failure.
   static Future<AqtResumeResult> tryResumeWithInfoDetailed({
     required String host,
     required int port,
@@ -704,7 +807,59 @@ class AqtTransportFactory implements TransportFactory {
     required Uint8List sessionToken,
     required int tabId,
     Duration budget = kDefaultResumeTimeout,
+    AqtRoute route = AqtRoute.direct,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
+    @visibleForTesting Duration relayBudget = const Duration(seconds: 8),
   }) async {
+    if (route == AqtRoute.direct) {
+      return _resumeEndpoint(host, port, spki, sessionToken, tabId, budget);
+    }
+    if (openRelay == null) {
+      return const AqtResumeFailed(AqtResumeFailReason.unknownError,
+          detail: 'relayed session but no relay opener');
+    }
+    final AqtSshRelay relay;
+    try {
+      // closeIfLate: a relay that opens after the budget has no owner — RESUME
+      // already failed — so it is closed instead of left running.
+      relay = await closeIfLate(openRelay(port), relayBudget,
+          onLate: (r) => r.close(), timeoutMessage: 'ssh relay timed out');
+    } catch (e) {
+      debugPrint('[RESUME] FAIL: ssh relay: $e');
+      return AqtResumeFailed(AqtResumeFailReason.networkTimeout,
+          detail: 'ssh relay: $e');
+    }
+    final r = await _resumeEndpoint(
+        '127.0.0.1', relay.localPort, spki, sessionToken, tabId, budget);
+    if (r is AqtResumeSuccess) {
+      r.transport
+        ..attachRelay(route: AqtRoute.viaSsh, relay: relay, daemonPort: port)
+        ..lastHost = host;
+    } else {
+      await relay.close();
+    }
+    return r;
+  }
+
+  static Future<AqtResumeResult> _resumeEndpoint(
+    String host,
+    int port,
+    Uint8List spki,
+    Uint8List sessionToken,
+    int tabId,
+    Duration budget,
+  ) async {
+    final override = resumeEndpointOverride;
+    if (override != null) {
+      return override(
+        host: host,
+        port: port,
+        spki: spki,
+        sessionToken: sessionToken,
+        tabId: tabId,
+        budget: budget,
+      );
+    }
     final tokHex = _hex4(sessionToken);
     debugPrint('[RESUME] attempt host=$host port=$port tab=$tabId tok=$tokHex');
 
@@ -804,6 +959,135 @@ class AqtTransportFactory implements TransportFactory {
   static String _hex4(List<int> bytes) =>
       bytes.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
 
+  /// QUIC to the daemon described by [info], picking the route (see
+  /// [AqtRoute]): direct UDP first (4 s), then QUIC over an SSH exec channel
+  /// on [client] — unless [server] is set to always use the SSH channel or
+  /// this run already found UDP blocked for it. The result is cached per
+  /// server for this run. With [ownsClient], a relayed transport takes
+  /// [client] over and closes it with itself.
+  static Future<AqtRouteOutcome<AqtTransport>> connectRouted({
+    required Server server,
+    required SSHClient client,
+    required AqtBootstrapInfo info,
+    required bool ownsClient,
+    int cols = 80,
+    int rows = 24,
+  }) async {
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    final routed = await connectWithRoute<AqtTransport>(
+      forceViaSsh: server.aqtViaSsh,
+      cached: AqtRouteCache.instance.get(server.id),
+      direct: () => closeIfLate(
+        AqtTransport.connect(
+            host: server.host, bootstrap: info, cols: cols, rows: rows),
+        const Duration(seconds: 4),
+        onLate: (t) => t.close(),
+        timeoutMessage: 'QUIC connect timed out — UDP port ${info.port} '
+            'unreachable? Allow UDP $ports in the server firewall / '
+            'security group',
+      ),
+      viaSsh: () async {
+        final relay = await AqtSshRelay.start(client, daemonPort: info.port);
+        try {
+          final t = await closeIfLate(
+            AqtTransport.connect(
+              host: '127.0.0.1',
+              bootstrap: info.withPort(relay.localPort),
+              cols: cols,
+              rows: rows,
+            ),
+            const Duration(seconds: 8),
+            onLate: (t) => t.close(),
+            timeoutMessage: 'QUIC over the SSH relay timed out',
+          );
+          t.attachRelay(
+            route: AqtRoute.viaSsh,
+            relay: relay,
+            ownedSshClient: ownsClient ? client : null,
+            daemonPort: info.port,
+          );
+          return t;
+        } catch (_) {
+          await relay.close();
+          rethrow;
+        }
+      },
+    );
+    AqtRouteCache.instance.set(server.id, routed.route);
+    return routed;
+  }
+
+  /// The SSH-relay failure inside [e] — unwrapping [TransportConnectException]
+  /// and [AqtRouteException] — or null when the relay is not what failed.
+  /// These failures are deterministic: retrying will not help.
+  @visibleForTesting
+  static Exception? relayFailureOf(Object? e) => switch (e) {
+        AqtRelayUnsupportedException() || AqtRelayStartException() =>
+          e as Exception,
+        AqtRouteException(:final viaSsh) => relayFailureOf(viaSsh),
+        TransportConnectException(:final cause) => relayFailureOf(cause),
+        _ => null,
+      };
+
+  /// A user-facing message for a QUIC connect failure: the SSH-relay
+  /// failures get their own copy, everything else its own text.
+  static String describeConnectError(BuildContext context, Object e) {
+    final l = context.l10n;
+    return switch (relayFailureOf(e)) {
+      AqtRelayUnsupportedException() => l.aqtRelayUnsupported,
+      AqtRelayStartException(:final stderr) => l.aqtRelayStartFailed(stderr),
+      _ => '$e',
+    };
+  }
+
+  /// The one-time "UDP unavailable, using the SSH channel" notice after an
+  /// automatic fallback (once per server per run).
+  static void notifyFallback(
+    AqtRouteOutcome<AqtTransport> routed,
+    Server server,
+    BuildContext? context,
+  ) {
+    if (!routed.autoFellBack || context == null || !context.mounted) return;
+    if (!AqtRouteCache.instance.markFallbackNotified(server.id)) return;
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.l10n.aqtFellBackToSsh(ports.arg)),
+      duration: const Duration(seconds: 6),
+    ));
+  }
+
+  /// Bootstraps flyterm-server for [server]: daemon or once mode, on the
+  /// server's configured UDP port range.
+  ///
+  /// [confirmContext] is the interactive context, if any. Only then can a
+  /// daemon running outside the configured range be restarted, after the
+  /// user agrees (it ends every AQT session on the host). Background
+  /// reconnects pass null and keep using the running daemon.
+  static Future<AqtBootstrapResult> bootstrapFor(
+    Server server,
+    SSHClient client, {
+    BuildContext? confirmContext,
+  }) {
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    if (!server.useDaemon) return bootstrapOnce(client, ports: ports);
+    final ctx = confirmContext;
+    return bootstrapDaemonStrict(
+      client,
+      ports: ports,
+      confirmRestart: ctx == null
+          ? null
+          : (running) async {
+              if (!ctx.mounted) return false;
+              return showAqtPortRestartDialog(
+                ctx,
+                currentPort: running.port,
+                ports: ports,
+                sessions: running.sessions,
+              );
+            },
+    );
+  }
+
   /// Check remote binary version against APK-bundled VERSION asset.
   /// If they differ, silently upload the new binary.
   /// A brief SnackBar is shown via [dialogContext] if available.
@@ -815,6 +1099,7 @@ class AqtTransportFactory implements TransportFactory {
     SSHClient client,
     BuildContext? dialogContext, {
     bool useDaemon = false,
+    AqtPortSpec ports = AqtPortSpec.defaults,
   }) async {
     try {
       final assetVersion = await AqtServerInstaller.loadVersionString();
@@ -875,6 +1160,7 @@ class AqtTransportFactory implements TransportFactory {
         client, bytes, arch,
         flytermVersion: pkgInfo.version,
         binaryVersion: assetVersion,
+        ports: ports,
       );
       if (outcome.success) {
         debugPrint(
@@ -897,21 +1183,10 @@ class AqtTransportFactory implements TransportFactory {
         if (newVer == null) {
           debugPrint('[AQT] legacy upgrade verify failed — using old binary');
         } else {
-          try {
-            final kill = await client.execute(
-              r'pkill -f "flyterm-server --listen" 2>/dev/null; '
-              r'for i in 1 2 3 4 5 6 7 8 9 10; do '
-              r'pgrep -f "flyterm-server --listen" >/dev/null 2>&1 || break; '
-              r'sleep 0.2; '
-              r'done; '
-              r'pkill -KILL -f "flyterm-server --listen" 2>/dev/null; '
-              r'rm -f ~/.flyterm-server/daemon.info; true',
-            );
-            await kill.done;
-          } catch (_) {}
+          await killDaemon(client);
           if (useDaemon) {
             try {
-              await bootstrapDaemonStrict(client);
+              await bootstrapDaemonStrict(client, ports: ports);
             } catch (e) {
               debugPrint('[AQT] legacy post-upgrade daemon spawn failed: $e');
             }

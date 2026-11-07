@@ -60,9 +60,9 @@ struct OldDaemon {
 /// Public entry point. Returns Ok(()) on INSTALL_OK (after printing the
 /// structured line), Err(reason) on INSTALL_ERR (caller prints + exits 1).
 ///
-/// [congestion] 取自本次 `--install` 的命令行，透传给新拉起的 daemon ——
-/// 见 [`spawn_daemon`] 上的说明。
-pub fn run(congestion: crate::cli::CongestionKind) -> Result<()> {
+/// [congestion] 与 [ports] 取自本次 `--install` 的命令行，透传给新拉起的
+/// daemon —— 见 [`spawn_daemon`] 上的说明。
+pub fn run(congestion: crate::cli::CongestionKind, ports: crate::cli::PortSpec) -> Result<()> {
     let paths = Paths::resolve()?;
     std::fs::create_dir_all(&paths.bin_dir).ok();
     std::fs::create_dir_all(paths.daemon_log.parent().unwrap()).ok();
@@ -135,7 +135,7 @@ pub fn run(congestion: crate::cli::CongestionKind) -> Result<()> {
     }
 
     // ── Spawn new daemon via setsid (avoids fork() unsafe) ──
-    spawn_daemon(&paths, congestion).map_err(|e| anyhow!("spawn_failed err={e}"))?;
+    spawn_daemon(&paths, congestion, ports).map_err(|e| anyhow!("spawn_failed err={e}"))?;
 
     // ── Wait for daemon.info ──
     let (port, pid) = wait_for_daemon_info(&paths).map_err(|e| {
@@ -324,7 +324,7 @@ fn kill_daemon(pid: i32) -> Result<()> {
     Ok(())
 }
 
-/// 拼出重启 daemon 的那条命令（`setsid <bin> --listen 0 --congestion X`）。
+/// 拼出重启 daemon 的那条命令（`setsid <bin> --listen PORTS --congestion X`）。
 ///
 /// 返回 `Command` 而不是参数数组，是为了让测试能断言**真正会被 exec 的东西**
 /// —— `Command::get_args()` 拿到的就是 spawn 时用的那份。抽成「参数数组 +
@@ -332,11 +332,15 @@ fn kill_daemon(pid: i32) -> Result<()> {
 /// 用它；而这一类「flag 在某条路径上悄悄丢掉」正是这个函数存在的原因。
 ///
 /// stdio 与 env 由 [`spawn_daemon`] 补 —— 那两样没法在不落地文件的情况下测。
-fn build_daemon_command(bin: &Path, congestion: crate::cli::CongestionKind) -> Command {
+fn build_daemon_command(
+    bin: &Path,
+    congestion: crate::cli::CongestionKind,
+    ports: crate::cli::PortSpec,
+) -> Command {
     let mut cmd = Command::new("setsid");
     cmd.arg(bin)
         .arg("--listen")
-        .arg("0")
+        .arg(ports.to_string())
         .arg("--congestion")
         .arg(congestion.as_str());
     cmd
@@ -346,11 +350,15 @@ fn build_daemon_command(bin: &Path, congestion: crate::cli::CongestionKind) -> C
 /// our binary. Using setsid the binary avoids needing fork() (which is
 /// unsafe-marked in nix and forbidden by our crate-level forbid lint).
 ///
-/// [congestion] 来自本次 `--install` 的命令行 —— 「装的时候要求什么配置，起
+/// [congestion] 与 [ports] 来自本次 `--install` 的命令行 —— 「装的时候要求什么配置，起
 /// 起来就是什么配置」。硬编码在这里的话，App 侧在 bootstrap 命令上加的 flag
 /// 会被这条路径悄悄绕过：升级流程是二进制自安装、由它自己拉起 daemon，App
 /// 随后只是复用已经在跑的那个。
-fn spawn_daemon(paths: &Paths, congestion: crate::cli::CongestionKind) -> Result<()> {
+fn spawn_daemon(
+    paths: &Paths,
+    congestion: crate::cli::CongestionKind,
+    ports: crate::cli::PortSpec,
+) -> Result<()> {
     let log = OpenOptions::new()
         .create(true)
         .append(true)
@@ -360,7 +368,7 @@ fn spawn_daemon(paths: &Paths, congestion: crate::cli::CongestionKind) -> Result
         .try_clone()
         .map_err(|e| anyhow!("dup daemon.log: {e}"))?;
 
-    let mut cmd = build_daemon_command(&paths.canonical_bin, congestion);
+    let mut cmd = build_daemon_command(&paths.canonical_bin, congestion, ports);
     cmd.stdin(Stdio::null())
         .stdout(Stdio::from(log))
         .stderr(Stdio::from(log_dup));
@@ -506,6 +514,7 @@ mod tests {
         let cmd = build_daemon_command(
             Path::new("/x/flyterm-server"),
             crate::cli::CongestionKind::Bbr,
+            crate::cli::PortSpec::ANY,
         );
         // 整条 argv 全等而不是「包含 --congestion」：这样多一个、少一个、顺序
         // 变了都会被抓到。端口 0 = 随机口，daemon 自己写进 daemon.info。
@@ -521,6 +530,7 @@ mod tests {
         let cmd = build_daemon_command(
             Path::new("/x/flyterm-server"),
             crate::cli::CongestionKind::Cubic,
+            crate::cli::PortSpec::ANY,
         );
         assert_eq!(
             argv_of(&cmd),
@@ -528,6 +538,30 @@ mod tests {
                 "/x/flyterm-server",
                 "--listen",
                 "0",
+                "--congestion",
+                "cubic"
+            ]
+        );
+    }
+
+    /// `--install --listen 61001-61999` 必须把端口段原样带给新 daemon ——
+    /// 否则升级会把用户配好的端口悄悄换回随机口。
+    #[test]
+    fn daemon_command_passes_port_range_through() {
+        let cmd = build_daemon_command(
+            Path::new("/x/flyterm-server"),
+            crate::cli::CongestionKind::Cubic,
+            crate::cli::PortSpec {
+                start: 61001,
+                end: 61999,
+            },
+        );
+        assert_eq!(
+            argv_of(&cmd),
+            [
+                "/x/flyterm-server",
+                "--listen",
+                "61001-61999",
                 "--congestion",
                 "cubic"
             ]
