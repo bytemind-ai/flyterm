@@ -331,6 +331,10 @@ class AppDatabase {
     String type,
   ) async {
     final cols = await db.rawQuery('PRAGMA table_info($table)');
+    // 表不存在时 PRAGMA 返回空：没有表就没有列可加。真实的库总有这些表，
+    // 但只建了部分表的迁移测试库（如 database_v38_test 的 v37 库没有
+    // servers）会走到这里 —— ALTER 一个不存在的表会让整个升级失败。
+    if (cols.isEmpty) return;
     if (cols.any((c) => c['name'] == column)) return;
     await db.execute('ALTER TABLE $table ADD COLUMN $column $type');
   }
