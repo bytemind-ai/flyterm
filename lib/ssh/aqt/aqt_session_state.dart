@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'aqt_route.dart';
+import 'aqt_transport.dart';
 
 /// secure storage 的最小接口，便于测试替身注入（真机上是 Keychain /
 /// Keystore，单测里换成内存 map，见 `test/ssh/aqt/aqt_session_state_test.dart`
@@ -235,4 +236,38 @@ class AqtSessionStateRepository {
     await _secure.delete(_tokenKey(tabId));
     await _db.delete(_table, where: 'tab_id = ?', whereArgs: [tabId]);
   }
+}
+
+/// 从一个已连上（或刚 RESUME 成功）的 transport 拼出要持久化的会话状态。
+/// 元数据不全时返回 null（这时不该覆盖磁盘上已有的那份）。
+///
+/// [ttlSecs] 是服务端这次下发的 TTL，0 = 没拿到（老版本 .so，或全新 HELLO
+/// 而非 RESUME）—— 那就保留 [existing] 里上一次已知的值，不拿 0 冲成
+/// 「立刻过期」。端口取 [AqtTransport.lastPort]：经由 SSH 通道时它是守护进程
+/// 端口而不是 relay 的本机端口（见 `AqtTransport.attachRelay`）。
+AqtSessionState? sessionStateFor(
+  AqtTransport t, {
+  required String tabId,
+  required AqtSessionState? existing,
+  required int ttlSecs,
+}) {
+  final port = t.lastPort;
+  final spki = t.lastSpki;
+  final token = t.sessionToken;
+  final aqtTabId = t.lastTabId;
+  if (port == null || spki == null || token == null || aqtTabId == null) {
+    return null;
+  }
+  return AqtSessionState(
+    tabId: tabId,
+    port: port,
+    spki: spki,
+    sessionToken: token,
+    aqtTabId: aqtTabId,
+    // 恒为原值：这一列已经没有写入方了，见 AqtSessionState 里的说明。
+    scrollbackCursor: existing?.scrollbackCursor ?? 0,
+    serverTtlSecs: ttlSecs > 0 ? ttlSecs : existing?.serverTtlSecs,
+    savedAt: DateTime.now(),
+    route: t.route,
+  );
 }

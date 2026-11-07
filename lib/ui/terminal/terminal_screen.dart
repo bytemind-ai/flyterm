@@ -74,6 +74,7 @@ import '../../ssh/transport/remote_transport.dart'
 import '../../ssh/transport/transport.dart';
 import '../../ssh/aqt/aqt_bootstrap.dart';
 import '../../ssh/aqt/aqt_port_spec.dart';
+import '../../ssh/aqt/aqt_ssh_relay.dart';
 import '../../ssh/aqt/aqt_server_installer.dart' show AqtInstallStatus;
 import '../../ssh/aqt/aqt_transport_factory.dart' show AqtTransportFactory;
 import '../../ssh/aqt/aqt_transport.dart' show AqtTransport;
@@ -1010,7 +1011,10 @@ class _TerminalScreenState extends State<TerminalScreen>
               staleTransport.lastPort = bootstrapResult.info.port;
               try {
                 final resumed = await AqtTransportFactory.tryResume(
-                    staleTransport, server.host);
+                    staleTransport, server.host,
+                    // Relayed sessions resume through this tab's SSH client.
+                    openRelay: (p) =>
+                        AqtSshRelay.start(sshClient, daemonPort: p));
                 if (resumed != null) {
                   tab.transport = resumed;
                   tab.clearRemoteTuiHintForNewTransport();
@@ -1036,6 +1040,8 @@ class _TerminalScreenState extends State<TerminalScreen>
                     final resumed = await AqtTransportFactory.tryResume(
                       staleTransport,
                       server.host,
+                      openRelay: (p) =>
+                          AqtSshRelay.start(sshClient, daemonPort: p),
                     );
                     if (resumed != null) {
                       tab.transport = resumed;

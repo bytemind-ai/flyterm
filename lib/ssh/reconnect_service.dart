@@ -34,7 +34,9 @@ import 'aqt/aqt_transport_factory.dart'
 import 'aqt/aqt_ffi.dart'
     show AqtDisposition, AqtNewSession, AqtRestored, AqtTabGone, PathStats;
 import 'aqt/aqt_session_state.dart'
-    show AqtSessionState, AqtSessionStateRepository;
+    show AqtSessionState, AqtSessionStateRepository, sessionStateFor;
+import 'aqt/aqt_route.dart';
+import 'aqt/aqt_ssh_relay.dart';
 import 'aqt/notify_seen_store.dart' show NotifySeenStore;
 import 'aqt/resume_issue_log.dart';
 import 'aqt/resume_sample.dart';
@@ -619,31 +621,16 @@ class ReconnectService with WidgetsBindingObserver {
     if (repo == null) return;
     final aqt = tab.transport;
     if (aqt is! AqtTransport) return;
-    final port = aqt.lastPort;
-    final spki = aqt.lastSpki;
-    final token = aqt.sessionToken;
-    final aqtTabId = aqt.lastTabId;
-    if (port == null || spki == null || token == null || aqtTabId == null) {
-      return;
-    }
+    if (aqt.lastPort == null) return;
     try {
       final existing = await repo.load(tab.id);
-      // resumeTtlSecs 0 = 取不到下发值（老版本 .so，或这次是全新 HELLO 而
-      // 非 RESUME）——保留上一次已知的 serverTtlSecs，而不是拿 0 覆盖成
-      // "立刻过期"。
-      final ttl = aqt.resumeTtlSecs;
-      final state = AqtSessionState(
+      final state = sessionStateFor(
+        aqt,
         tabId: tab.id,
-        port: port,
-        spki: spki,
-        sessionToken: token,
-        aqtTabId: aqtTabId,
-        // 恒为原值：这一列已经没有写入方了，见 AqtSessionState 里的说明。
-        scrollbackCursor: existing?.scrollbackCursor ?? 0,
-        serverTtlSecs: ttl > 0 ? ttl : existing?.serverTtlSecs,
-        savedAt: DateTime.now(),
+        existing: existing,
+        ttlSecs: aqt.resumeTtlSecs,
       );
-      await repo.save(state);
+      if (state != null) await repo.save(state);
     } catch (_) {}
   }
 
@@ -886,6 +873,24 @@ class ReconnectService with WidgetsBindingObserver {
       if (!_sessionManager.tabs.contains(tab)) return;
       _warmupAuxSshClient(tab).ignore();
     });
+  }
+
+  /// 为 [tab] 的 SSH 通道会话（[AqtRoute.viaSsh]）开一条 relay：走这个 tab
+  /// 的 SSH 辅助连接 —— 它已经处理好凭据、跳板机和断线重建。连接还没好就先
+  /// 预热，正在预热就每 200 ms 看一次；总时长由调用方的超时（8 s）兜住。
+  Future<AqtSshRelay> openAqtRelay(SessionTab tab, int daemonPort) async {
+    var client = tab.connection.client;
+    if (client == null || client.isClosed) {
+      unawaited(_warmupAuxSshClient(tab));
+      while (client == null || client.isClosed) {
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        if (!_sessionManager.tabs.contains(tab)) {
+          throw StateError('tab closed while waiting for its SSH connection');
+        }
+        client = tab.connection.client;
+      }
+    }
+    return AqtSshRelay.start(client, daemonPort: daemonPort);
   }
 
   /// QUIC tab 后台预热 SSH 辅助连接，供 SFTP / tmux / tunnel 等需要 SSH 的
@@ -2629,6 +2634,8 @@ class ReconnectService with WidgetsBindingObserver {
         sessionToken: token,
         tabId: tabId,
         budget: budget,
+        route: aqt.route,
+        openRelay: (p) => openAqtRelay(tab, p),
       );
       _noteResumeOutcome(seq, r);
       return r;
@@ -2657,6 +2664,8 @@ class ReconnectService with WidgetsBindingObserver {
       sessionToken: Uint8List.fromList(info.sessionToken),
       tabId: info.aqtTabId,
       budget: budget,
+      route: info.route,
+      openRelay: (p) => openAqtRelay(tab, p),
     );
     _noteResumeOutcome(seq, r);
     return r;
@@ -3652,6 +3661,7 @@ class ReconnectService with WidgetsBindingObserver {
           final earlyResumed = await AqtTransportFactory.tryResume(
             prevAqt,
             server.host,
+            openRelay: (p) => openAqtRelay(tab, p),
           );
           // tryResume 只返回 transport?，拿不到 AqtResumeFailReason —— 这里
           // 的 FAIL 天然比其它站点粗，不是漏写。

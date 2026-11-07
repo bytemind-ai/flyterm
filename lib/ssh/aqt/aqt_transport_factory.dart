@@ -542,13 +542,23 @@ class AqtTransportFactory implements TransportFactory {
           '(port=${previous.lastPort} tab=${previous.lastTabId})',
         );
       } else {
-        final result = await tryResumeWithInfoDetailedForTest(
-          host: server.host,
-          port: previous.lastPort!,
-          spki: previous.lastSpki!,
-          sessionToken: previous.sessionToken!,
-          tabId: previous.lastTabId!,
-        );
+        final result = previous.route == AqtRoute.viaSsh
+            ? await tryResumeWithInfoDetailed(
+                host: server.host,
+                port: previous.lastPort!,
+                spki: previous.lastSpki!,
+                sessionToken: previous.sessionToken!,
+                tabId: previous.lastTabId!,
+                route: AqtRoute.viaSsh,
+                openRelay: (p) => _relayFromCreds(server, creds, p),
+              )
+            : await tryResumeWithInfoDetailedForTest(
+                host: server.host,
+                port: previous.lastPort!,
+                spki: previous.lastSpki!,
+                sessionToken: previous.sessionToken!,
+                tabId: previous.lastTabId!,
+              );
         if (result is AqtResumeSuccess) return result.transport;
         if (result is AqtResumeFailed &&
             (result.reason == AqtResumeFailReason.sessionNotFound ||
@@ -567,6 +577,35 @@ class AqtTransportFactory implements TransportFactory {
     );
   }
 
+  /// An SSH relay for RESUME on the reconnect path: over the caller's live
+  /// SSH connection when there is one, else over a connection opened just
+  /// for it (owned by the relay, closed with it).
+  Future<AqtSshRelay> _relayFromCreds(
+    Server server,
+    ReconnectCredentials creds,
+    int daemonPort,
+  ) async {
+    final reuse = creds.reuseClient;
+    if (reuse != null && !reuse.isClosed) {
+      return AqtSshRelay.start(reuse, daemonPort: daemonPort);
+    }
+    final client = await sshConnectForExec(
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      password: creds.password,
+      privateKeyPem: creds.privateKeyPem,
+      keyPairs: creds.keyPairs,
+    );
+    try {
+      return await AqtSshRelay.start(client,
+          daemonPort: daemonPort, ownsClient: true);
+    } catch (_) {
+      client.close();
+      rethrow;
+    }
+  }
+
   Future<RemoteTransport> _reconnectRace({
     required Server server,
     required ReconnectCredentials creds,
@@ -574,6 +613,17 @@ class AqtTransportFactory implements TransportFactory {
     BuildContext? dialogContext,
     Future<void> Function()? onPurgeSession,
   }) async {
+    // Relayed sessions need an SSH connection before RESUME can even start,
+    // so racing RESUME against the SSH bootstrap buys nothing: serial.
+    if (previous is AqtTransport && previous.route == AqtRoute.viaSsh) {
+      return _reconnectSerial(
+        server: server,
+        creds: creds,
+        previous: previous,
+        dialogContext: dialogContext,
+        onPurgeSession: onPurgeSession,
+      );
+    }
     // No metadata → race makes no sense; go straight to bootstrap.
     if (previous is! AqtTransport ||
         previous.lastPort == null ||
@@ -712,6 +762,7 @@ class AqtTransportFactory implements TransportFactory {
     String host, {
     int ringTailHash = 0, // FNV-1a hash of last 8 raw bytes for server verification
     Duration budget = kDefaultResumeTimeout,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
   }) async {
     final port = previous.lastPort;
     final spki = previous.lastSpki;
@@ -728,6 +779,8 @@ class AqtTransportFactory implements TransportFactory {
       sessionToken: token,
       tabId: tabId,
       budget: budget,
+      route: previous.route,
+      openRelay: openRelay,
     );
   }
 
@@ -744,6 +797,8 @@ class AqtTransportFactory implements TransportFactory {
     required Uint8List sessionToken,
     required int tabId,
     Duration budget = kDefaultResumeTimeout,
+    AqtRoute route = AqtRoute.direct,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
   }) async {
     final result = await tryResumeWithInfoDetailed(
       host: host,
@@ -752,6 +807,8 @@ class AqtTransportFactory implements TransportFactory {
       sessionToken: sessionToken,
       tabId: tabId,
       budget: budget,
+      route: route,
+      openRelay: openRelay,
     );
     return switch (result) {
       AqtResumeSuccess(:final transport) => transport,
@@ -760,6 +817,27 @@ class AqtTransportFactory implements TransportFactory {
   }
 
   /// Detailed 版本：返回 [AqtResumeResult] 让调用方区分失败原因。
+  /// Test hook replacing the FFI RESUME against one endpoint (host:port).
+  @visibleForTesting
+  static Future<AqtResumeResult> Function({
+    required String host,
+    required int port,
+    required Uint8List spki,
+    required Uint8List sessionToken,
+    required int tabId,
+    required Duration budget,
+  })? resumeEndpointOverride;
+
+  /// RESUME every path funnels through.
+  ///
+  /// [route] is the session's persisted route. For [AqtRoute.viaSsh],
+  /// [openRelay] opens an SSH relay towards the daemon on [port] (the
+  /// caller knows which SSH connection to use); RESUME then dials the
+  /// relay's local port, and the transport takes the relay over. Opening
+  /// the relay has its own 8 s budget, separate from [budget], so a cold
+  /// auxiliary SSH connection gets time to come up. A relay that cannot be
+  /// opened is a failed RESUME, and the caller falls back to a full
+  /// reconnect as for any other failure.
   static Future<AqtResumeResult> tryResumeWithInfoDetailed({
     required String host,
     required int port,
@@ -767,7 +845,55 @@ class AqtTransportFactory implements TransportFactory {
     required Uint8List sessionToken,
     required int tabId,
     Duration budget = kDefaultResumeTimeout,
+    AqtRoute route = AqtRoute.direct,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
   }) async {
+    if (route == AqtRoute.direct) {
+      return _resumeEndpoint(host, port, spki, sessionToken, tabId, budget);
+    }
+    if (openRelay == null) {
+      return const AqtResumeFailed(AqtResumeFailReason.unknownError,
+          detail: 'relayed session but no relay opener');
+    }
+    final AqtSshRelay relay;
+    try {
+      relay = await openRelay(port).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('[RESUME] FAIL: ssh relay: $e');
+      return AqtResumeFailed(AqtResumeFailReason.networkTimeout,
+          detail: 'ssh relay: $e');
+    }
+    final r = await _resumeEndpoint(
+        '127.0.0.1', relay.localPort, spki, sessionToken, tabId, budget);
+    if (r is AqtResumeSuccess) {
+      r.transport
+        ..attachRelay(route: AqtRoute.viaSsh, relay: relay, daemonPort: port)
+        ..lastHost = host;
+    } else {
+      await relay.close();
+    }
+    return r;
+  }
+
+  static Future<AqtResumeResult> _resumeEndpoint(
+    String host,
+    int port,
+    Uint8List spki,
+    Uint8List sessionToken,
+    int tabId,
+    Duration budget,
+  ) async {
+    final override = resumeEndpointOverride;
+    if (override != null) {
+      return override(
+        host: host,
+        port: port,
+        spki: spki,
+        sessionToken: sessionToken,
+        tabId: tabId,
+        budget: budget,
+      );
+    }
     final tokHex = _hex4(sessionToken);
     debugPrint('[RESUME] attempt host=$host port=$port tab=$tabId tok=$tokHex');
 

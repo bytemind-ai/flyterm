@@ -117,6 +117,7 @@ class AqtSshRelay {
   final RawDatagramSocket _socket;
   final RelayFrameDecoder _decoder = RelayFrameDecoder();
   final Completer<void> _done = Completer<void>();
+  SSHClient? _ownedClient;
   InternetAddress? _appAddress;
   int? _appPort;
   StreamSubscription<RawSocketEvent>? _socketSub;
@@ -132,9 +133,12 @@ class AqtSshRelay {
   Future<void> get done => _done.future;
 
   /// Opens the relay over [client] towards the daemon on [daemonPort].
+  /// With [ownsClient], [close] also closes [client] (a connection opened
+  /// just for this relay).
   static Future<AqtSshRelay> start(
     SSHClient client, {
     required int daemonPort,
+    bool ownsClient = false,
   }) async {
     final probe = await client.execute(relaySupportProbeCommand());
     final answer = await probe.stdout
@@ -145,7 +149,9 @@ class AqtSshRelay {
     probe.close();
     if (answer.trim() != 'yes') throw const AqtRelayUnsupportedException();
     final session = await client.execute(relayExecCommand(daemonPort));
-    return startOnExec(SshSessionRelayExec(session));
+    final relay = await startOnExec(SshSessionRelayExec(session));
+    if (ownsClient) relay._ownedClient = client;
+    return relay;
   }
 
   /// [start] after the exec channel is open: if the relay process exits
@@ -221,5 +227,7 @@ class AqtSshRelay {
     await _stdoutSub?.cancel();
     _socket.close();
     _exec.close();
+    _ownedClient?.close();
+    _ownedClient = null;
   }
 }
