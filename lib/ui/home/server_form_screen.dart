@@ -14,6 +14,7 @@ import '../../platform_capabilities.dart';
 import '../../commerce/entitlement_service.dart';
 import '../../commerce/feature_gate.dart';
 import '../../ssh/transport/transport.dart';
+import '../../ssh/aqt/aqt_port_spec.dart';
 import '../../ai/agent/agent_session_manager.dart';
 import '../../ai/agent/server_notes_manager.dart';
 import '../../ai/agent/tool_registry.dart';
@@ -50,6 +51,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
   bool _useTmux = false;
   bool _useDaemon = false;
   String _moshPortRange = '60000:61000';
+  String _aqtPorts = '';
   bool _agentForwarding = false;
   bool _useJump = false;
   String? _jumpHostId;
@@ -85,6 +87,7 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
     _useTmux = s?.useTmux ?? false;
     _useDaemon = s?.useDaemon ?? false;
     _moshPortRange = s?.moshPortRange ?? '60000:61000';
+    _aqtPorts = s?.aqtPorts ?? '';
     _agentForwarding = s?.agentForwarding ?? false;
     _addressFamily = s?.addressFamily ?? 'auto';
     _transport = s?.transport ?? Transport.quic;
@@ -504,6 +507,23 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
                   onChanged: (v) => setState(() => _useDaemon = v),
                   contentPadding: EdgeInsets.zero,
                 ),
+              if (_transport == Transport.quic)
+                _field(
+                  TextFormField(
+                    initialValue: _aqtPorts,
+                    decoration: InputDecoration(
+                      labelText: l.aqtPortsLabel,
+                      hintText: AqtPortSpec.defaults.arg,
+                      helperText: l.aqtPortsHint,
+                      helperMaxLines: 3,
+                    ),
+                    onChanged: (v) => _aqtPorts = v,
+                    validator: (v) =>
+                        v == null || v.trim().isEmpty || AqtPortSpec.parse(v) != null
+                            ? null
+                            : l.aqtPortsInvalid,
+                  ),
+                ),
 
               // ── ADVANCED 折叠区 ───────────────────────────────────
               const SizedBox(height: 8),
@@ -871,6 +891,10 @@ class _ServerFormScreenState extends State<ServerFormScreen> {
       addressFamily: _serverType == 'local' ? 'auto' : _addressFamily,
       transport: _serverType == 'local' ? Transport.ssh : _transport,
       useDaemon: _serverType == 'local' ? false : _useDaemon,
+      // 存规范化后的写法（去掉空白）；空 = 默认范围。
+      aqtPorts: _serverType == 'local' || _aqtPorts.trim().isEmpty
+          ? null
+          : AqtPortSpec.parse(_aqtPorts)?.arg,
     );
     if (_authType == 'password' && _password.text.isNotEmpty) {
       await storage.savePassword(id, _password.text);

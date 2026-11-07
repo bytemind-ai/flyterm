@@ -3435,4 +3435,32 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get promptLanguageName => '简体中文';
+
+  @override
+  String get aqtPortsLabel => 'UDP 端口';
+
+  @override
+  String get aqtPortsHint => '留空使用 61001-61999。可填单个端口或范围，需在服务器防火墙/安全组里放行对应的 UDP 端口。';
+
+  @override
+  String get aqtPortsInvalid => '请输入 1024–65535 之间的端口或范围，例如 61001-61999';
+
+  @override
+  String get aqtPortRestartTitle => '重启 FlyTerm Server？';
+
+  @override
+  String aqtPortRestartBody(String current, String ports, int sessions) {
+    return '服务端正在 UDP $current 上运行，不在设置的 $ports 范围内。重启后会改用新端口，但会中断这台服务器上的 $sessions 个 AQT 会话（包括其他设备上的）。';
+  }
+
+  @override
+  String aqtPortRestartBodyUnknown(String current, String ports) {
+    return '服务端正在 UDP $current 上运行，不在设置的 $ports 范围内。重启后会改用新端口，但会中断这台服务器上所有 AQT 会话（包括其他设备上的）。';
+  }
+
+  @override
+  String get aqtPortRestartConfirm => '重启';
+
+  @override
+  String get aqtPortRestartKeep => '继续用当前端口';
 }

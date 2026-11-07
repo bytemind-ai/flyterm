@@ -200,7 +200,7 @@ the user.
      (`AQT_VER` / `AQT_PORT` / `AQT_PUBKEY` / `AQT_TOKEN`) and lives for the
      duration of the SSH exec.
    - **Daemon mode** — probe `flyterm-server --status` first; if nothing is
-     running, spawn with `setsid nohup "$BIN" --listen 0 … & disown` and poll
+     running, spawn with `setsid nohup "$BIN" --listen <ports> … & disown` and poll
      `~/.flyterm-server/state/` for `daemon.info` on a real 5-second wall-clock
      deadline. `setsid` is required, not decorative: on hosts with
      systemd-logind `KillUserProcesses=yes` (the Debian/Ubuntu default) the
@@ -209,6 +209,13 @@ the user.
      `TMUX`/`TMUX_PANE`/`TERM_PROGRAM*`, because an SSH exec runs under the
      login shell and may inherit tmux variables that make TUIs render in
      tmux-compatibility mode under a PTY that no tmux wraps.
+     `<ports>` is the server record's UDP port range (`Server.aqtPorts`,
+     default `61001-61999`), so users can open it in a firewall ahead of
+     time; flyterm-server binds a free port in it, starting from a random
+     offset so several users' daemons on one host spread out. Binaries too
+     old to parse a range (their `--help` lacks `START-END`) get `--listen 0`.
+     A daemon already running outside the range is only restarted after the
+     user confirms, since that ends every AQT session on the host.
    - If `daemon.info` never appears, `AqtDaemonStartFailedException` carries
      the tail of `daemon.log` so the error names the cause.
 2. If the binary is not on `PATH` and not at

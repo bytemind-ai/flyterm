@@ -16,6 +16,8 @@ import '../transport/transport_factory.dart';
 import 'aqt_bootstrap.dart';
 import 'aqt_ffi.dart';
 import 'aqt_install_dialog.dart';
+import 'aqt_port_restart_dialog.dart';
+import 'aqt_port_spec.dart';
 import 'aqt_server_installer.dart';
 import 'aqt_transport.dart';
 
@@ -179,7 +181,12 @@ class AqtTransportFactory implements TransportFactory {
       //    If mismatch (e.g. server lacks compression, new features, bug fixes)
       //    the new binary is uploaded silently (no dialog). If upgrade fails the
       //    old binary is still used — failure is logged and not surfaced.
-      await maybeUpgrade(client, dialogContext, useDaemon: server.useDaemon);
+      await maybeUpgrade(
+        client,
+        dialogContext,
+        useDaemon: server.useDaemon,
+        ports: AqtPortSpec.forServer(server.aqtPorts),
+      );
 
       var triedInstall = false;
       var triedStaleDaemonClean = false;
@@ -190,9 +197,11 @@ class AqtTransportFactory implements TransportFactory {
           //                              never silently falls back to once)
           //    server.useDaemon=false → once mode (default; lightweight)
           final bootSw = Stopwatch()..start();
-          final bootstrapResult = server.useDaemon
-              ? await bootstrapDaemonStrict(client)
-              : await bootstrapOnce(client);
+          final bootstrapResult = await bootstrapFor(
+            server,
+            client,
+            confirmContext: dialogContext,
+          );
           bootMs = bootSw.elapsedMilliseconds;
 
           // 4) QUIC connect — keep bootstrapResult alive until connected.
@@ -206,8 +215,11 @@ class AqtTransportFactory implements TransportFactory {
               bootstrap: bootstrapResult.info,
             ).timeout(
               const Duration(seconds: 8),
-              onTimeout: () => throw const AqtBootstrapException(
-                  'QUIC connect timed out after bootstrap'),
+              onTimeout: () => throw AqtBootstrapException(
+                  'QUIC connect timed out after bootstrap — UDP port '
+                  '${bootstrapResult.info.port} unreachable? Allow UDP '
+                  '${AqtPortSpec.forServer(server.aqtPorts)} in the server '
+                  'firewall / security group'),
             );
             handshakeMs = hsSw.elapsedMilliseconds;
           } catch (e) {
@@ -804,6 +816,38 @@ class AqtTransportFactory implements TransportFactory {
   static String _hex4(List<int> bytes) =>
       bytes.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
 
+  /// Bootstraps flyterm-server for [server]: daemon or once mode, on the
+  /// server's configured UDP port range.
+  ///
+  /// [confirmContext] is the interactive context, if any. Only then can a
+  /// daemon running outside the configured range be restarted, after the
+  /// user agrees (it ends every AQT session on the host). Background
+  /// reconnects pass null and keep using the running daemon.
+  static Future<AqtBootstrapResult> bootstrapFor(
+    Server server,
+    SSHClient client, {
+    BuildContext? confirmContext,
+  }) {
+    final ports = AqtPortSpec.forServer(server.aqtPorts);
+    if (!server.useDaemon) return bootstrapOnce(client, ports: ports);
+    final ctx = confirmContext;
+    return bootstrapDaemonStrict(
+      client,
+      ports: ports,
+      confirmRestart: ctx == null
+          ? null
+          : (running) async {
+              if (!ctx.mounted) return false;
+              return showAqtPortRestartDialog(
+                ctx,
+                currentPort: running.port,
+                ports: ports,
+                sessions: running.sessions,
+              );
+            },
+    );
+  }
+
   /// Check remote binary version against APK-bundled VERSION asset.
   /// If they differ, silently upload the new binary.
   /// A brief SnackBar is shown via [dialogContext] if available.
@@ -815,6 +859,7 @@ class AqtTransportFactory implements TransportFactory {
     SSHClient client,
     BuildContext? dialogContext, {
     bool useDaemon = false,
+    AqtPortSpec ports = AqtPortSpec.defaults,
   }) async {
     try {
       final assetVersion = await AqtServerInstaller.loadVersionString();
@@ -875,6 +920,7 @@ class AqtTransportFactory implements TransportFactory {
         client, bytes, arch,
         flytermVersion: pkgInfo.version,
         binaryVersion: assetVersion,
+        ports: ports,
       );
       if (outcome.success) {
         debugPrint(
@@ -897,21 +943,10 @@ class AqtTransportFactory implements TransportFactory {
         if (newVer == null) {
           debugPrint('[AQT] legacy upgrade verify failed — using old binary');
         } else {
-          try {
-            final kill = await client.execute(
-              r'pkill -f "flyterm-server --listen" 2>/dev/null; '
-              r'for i in 1 2 3 4 5 6 7 8 9 10; do '
-              r'pgrep -f "flyterm-server --listen" >/dev/null 2>&1 || break; '
-              r'sleep 0.2; '
-              r'done; '
-              r'pkill -KILL -f "flyterm-server --listen" 2>/dev/null; '
-              r'rm -f ~/.flyterm-server/daemon.info; true',
-            );
-            await kill.done;
-          } catch (_) {}
+          await killDaemon(client);
           if (useDaemon) {
             try {
-              await bootstrapDaemonStrict(client);
+              await bootstrapDaemonStrict(client, ports: ports);
             } catch (e) {
               debugPrint('[AQT] legacy post-upgrade daemon spawn failed: $e');
             }

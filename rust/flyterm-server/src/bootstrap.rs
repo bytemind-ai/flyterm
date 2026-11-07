@@ -53,9 +53,86 @@ pub fn daemon_info_if_alive(content: &str, is_alive: impl Fn(i32) -> bool) -> Op
     }
 }
 
+/// `daemon.sessions` 的内容：活跃会话数，由 daemon 定期刷新。
+///
+/// 单独一个文件而不是改写 `daemon.info`：后者在启动时写一次就不再动，
+/// 它的存在与否本身就是「daemon 起来了」的信号，不该被周期性重写打扰。
+pub fn sessions_line(count: usize) -> String {
+    format!("AQT_SESSIONS={count}\n")
+}
+
+/// `--status` 的完整输出：活着的 daemon 的 `daemon.info`，再加上
+/// `daemon.sessions` 里的会话数（格式不对就忽略 —— 会话数只用于提示，
+/// 不能因为它坏了让 App 连不上）。
+pub fn status_output(
+    info: &str,
+    sessions: Option<&str>,
+    is_alive: impl Fn(i32) -> bool,
+) -> Option<String> {
+    let mut out = daemon_info_if_alive(info, is_alive)?;
+    let count = sessions.and_then(|s| {
+        s.lines().find_map(|l| {
+            l.strip_prefix("AQT_SESSIONS=")?
+                .trim()
+                .parse::<usize>()
+                .ok()
+        })
+    });
+    if let Some(n) = count {
+        out.push_str(&sessions_line(n));
+    }
+    Some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn status_appends_session_count_when_alive() {
+        let info = "AQT_PORT=61005\nAQT_PUBKEY=x\nAQT_VERSION=v\nAQT_PID=1234\n";
+        let out = status_output(info, Some("AQT_SESSIONS=3\n"), |_| true).unwrap();
+        assert!(out.starts_with(info), "{out:?}");
+        assert!(out.ends_with("AQT_SESSIONS=3\n"), "{out:?}");
+    }
+
+    #[test]
+    fn status_without_sessions_file_has_no_count() {
+        let info = "AQT_PORT=61005\nAQT_PID=1234\n";
+        assert_eq!(status_output(info, None, |_| true).as_deref(), Some(info));
+    }
+
+    #[test]
+    fn status_ignores_malformed_sessions_file() {
+        let info = "AQT_PORT=61005\nAQT_PID=1234\n";
+        for junk in [
+            "",
+            "AQT_SESSIONS=",
+            "AQT_SESSIONS=abc\n",
+            "garbage\nAQT_PORT=1\n",
+        ] {
+            assert_eq!(
+                status_output(info, Some(junk), |_| true).as_deref(),
+                Some(info),
+                "{junk:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn status_dead_daemon_prints_nothing_even_with_sessions_file() {
+        let info = "AQT_PORT=61005\nAQT_PID=1234\n";
+        assert_eq!(
+            status_output(info, Some("AQT_SESSIONS=3\n"), |_| false),
+            None
+        );
+    }
+
+    #[test]
+    fn sessions_line_format() {
+        assert_eq!(sessions_line(0), "AQT_SESSIONS=0\n");
+        assert_eq!(sessions_line(12), "AQT_SESSIONS=12\n");
+    }
 
     #[test]
     fn daemon_info_alive_pid_is_printed() {

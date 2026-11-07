@@ -35,6 +35,11 @@ class Server {
   /// Failure does NOT fall back to once — surfaces an explicit error.
   final bool useDaemon;
 
+  /// UDP port or range (`61001-61999`) the AQT daemon listens on. Null/empty
+  /// means [AqtPortSpec.defaults]. A fixed range is what lets users open the
+  /// server firewall ahead of time; see `aqt_port_spec.dart`.
+  final String? aqtPorts;
+
   /// Last SFTP path browsed for this server. Written every time the user
   /// navigates within the inline SFTP view; read as the starting directory
   /// on the next SFTP open (including after app restart). Null = use HOME.
@@ -78,6 +83,7 @@ class Server {
     // SSH channel close. Users can opt out via the server form toggle if
     // they explicitly want clean teardown.
     this.useDaemon = true,
+    this.aqtPorts,
     this.sftpLastPath,
     this.sftpViewMode = false,
   });
@@ -102,6 +108,7 @@ class Server {
         'address_family': addressFamily,
         'connection_strategy': transport.name,
         'use_daemon': useDaemon ? 1 : 0,
+        'aqt_ports': aqtPorts,
       };
 
   factory Server.fromMap(Map<String, dynamic> map) {
@@ -136,6 +143,7 @@ class Server {
       // the key inherit the same daemon-on behaviour. DB schema has
       // DEFAULT 1 so this fallback is theoretical for live data.
       useDaemon: (map['use_daemon'] as int? ?? 1) == 1,
+      aqtPorts: map['aqt_ports'] as String?,
       sftpLastPath: map['sftp_last_path'] as String?,
       sftpViewMode: (map['sftp_view_mode'] as int? ?? 0) == 1,
     );
@@ -160,6 +168,7 @@ class Server {
     String? addressFamily,
     Transport? transport,
     bool? useDaemon,
+    String? aqtPorts,
   }) =>
       Server(
         id: id,
@@ -185,5 +194,6 @@ class Server {
         addressFamily: addressFamily ?? this.addressFamily,
         transport: transport ?? this.transport,
         useDaemon: useDaemon ?? this.useDaemon,
+        aqtPorts: aqtPorts ?? this.aqtPorts,
       );
 }

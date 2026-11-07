@@ -3561,4 +3561,32 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get promptLanguageName => 'English';
+
+  @override
+  String get aqtPortsLabel => 'UDP ports';
+
+  @override
+  String get aqtPortsHint => 'Leave empty for 61001-61999. A single port or a range; allow it as UDP in the server firewall / security group.';
+
+  @override
+  String get aqtPortsInvalid => 'Enter a port or range between 1024 and 65535, e.g. 61001-61999';
+
+  @override
+  String get aqtPortRestartTitle => 'Restart FlyTerm Server?';
+
+  @override
+  String aqtPortRestartBody(String current, String ports, int sessions) {
+    return 'The server is listening on UDP $current, outside the configured $ports. Restarting moves it to the new ports but ends the $sessions AQT session(s) on this server, including ones on other devices.';
+  }
+
+  @override
+  String aqtPortRestartBodyUnknown(String current, String ports) {
+    return 'The server is listening on UDP $current, outside the configured $ports. Restarting moves it to the new ports but ends every AQT session on this server, including ones on other devices.';
+  }
+
+  @override
+  String get aqtPortRestartConfirm => 'Restart';
+
+  @override
+  String get aqtPortRestartKeep => 'Keep current port';
 }

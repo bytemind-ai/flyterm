@@ -1723,5 +1723,13 @@
   "agentApprovalAlways": "总是允许",
   "agentApprovalRulePrefix": "以后都允许",
   "agentApprovalReject": "拒绝",
-  "promptLanguageName": "简体中文"
+  "promptLanguageName": "简体中文",
+  "aqtPortsLabel": "UDP 端口",
+  "aqtPortsHint": "留空使用 61001-61999。可填单个端口或范围，需在服务器防火墙/安全组里放行对应的 UDP 端口。",
+  "aqtPortsInvalid": "请输入 1024–65535 之间的端口或范围，例如 61001-61999",
+  "aqtPortRestartTitle": "重启 FlyTerm Server？",
+  "aqtPortRestartBody": "服务端正在 UDP {current} 上运行，不在设置的 {ports} 范围内。重启后会改用新端口，但会中断这台服务器上的 {sessions} 个 AQT 会话（包括其他设备上的）。",
+  "aqtPortRestartBodyUnknown": "服务端正在 UDP {current} 上运行，不在设置的 {ports} 范围内。重启后会改用新端口，但会中断这台服务器上所有 AQT 会话（包括其他设备上的）。",
+  "aqtPortRestartConfirm": "重启",
+  "aqtPortRestartKeep": "继续用当前端口"
 }

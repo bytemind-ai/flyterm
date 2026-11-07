@@ -4,7 +4,7 @@ import 'package:path/path.dart';
 
 class AppDatabase {
   static const _dbName = 'flyterm.db';
-  static const _dbVersion = 43;
+  static const _dbVersion = 44;
 
   /// [overridePath] 让测试能在一个真实文件上跑升级路径（见
   /// `test/data/database_v38_test.dart`）。生产调用点一律不带它 ——
@@ -46,7 +46,8 @@ class AppDatabase {
         server_type TEXT NOT NULL DEFAULT 'ssh',
         address_family TEXT NOT NULL DEFAULT 'auto',
         connection_strategy TEXT NOT NULL DEFAULT 'quic',
-        use_daemon INTEGER NOT NULL DEFAULT 1
+        use_daemon INTEGER NOT NULL DEFAULT 1,
+        aqt_ports TEXT
       )
     ''');
     await db.execute('''
@@ -923,6 +924,10 @@ class AppDatabase {
       await db.execute('DROP TABLE IF EXISTS scheduled_task_runs');
       await db.execute('DROP TABLE IF EXISTS scheduled_deploy_targets');
       await db.execute('DROP TABLE IF EXISTS scheduled_tasks');
+    }
+    if (oldVersion < 44) {
+      // AQT daemon 的 UDP 端口段（2026-11-07）。NULL = 默认 61001-61999。
+      await _addColumnIfMissing(db, 'servers', 'aqt_ports', 'TEXT');
     }
   }
 }

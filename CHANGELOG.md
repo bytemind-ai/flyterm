@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- AQT (QUIC) listens on a fixed UDP port range instead of a random port, so it
+  can be opened in a firewall / security group ahead of time: 61001-61999 by
+  default, configurable per server as **UDP ports** (a port or a range). A
+  daemon already running outside the range is restarted only after you
+  confirm, because that ends every AQT session on the host. flyterm-server
+  0.3.0 (`--listen` / `--once-port` accept `START-END`, `--status` reports the
+  live session count); older binaries keep using a random port until upgraded.
+
 ## [0.7.0] - 2026-11-06
 
 First open-source release. Versioning restarts at 0.7.0; the 2.x entries

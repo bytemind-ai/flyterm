@@ -73,6 +73,7 @@ import '../../ssh/transport/remote_transport.dart'
     show TransportCapability, TransportKind;
 import '../../ssh/transport/transport.dart';
 import '../../ssh/aqt/aqt_bootstrap.dart';
+import '../../ssh/aqt/aqt_port_spec.dart';
 import '../../ssh/aqt/aqt_server_installer.dart' show AqtInstallStatus;
 import '../../ssh/aqt/aqt_transport_factory.dart' show AqtTransportFactory;
 import '../../ssh/aqt/aqt_transport.dart' show AqtTransport;
@@ -988,14 +989,18 @@ class _TerminalScreenState extends State<TerminalScreen>
               // ignore: use_build_context_synchronously
               mounted ? context : null,
               useDaemon: server.useDaemon,
+              ports: AqtPortSpec.forServer(server.aqtPorts),
             );
 
             // 1. Get current daemon SPKI first (avoids stale once-mode SPKI in RESUME).
             //    Then attempt RESUME with the CORRECT current SPKI.
             try {
-              bootstrapResult = server.useDaemon
-                  ? await bootstrapDaemonStrict(sshClient)
-                  : await bootstrapOnce(sshClient);
+              bootstrapResult = await AqtTransportFactory.bootstrapFor(
+                server,
+                sshClient,
+                // ignore: use_build_context_synchronously
+                confirmContext: mounted ? context : null,
+              );
             } catch (_) {}
 
             if (staleTransport is AqtTransport && bootstrapResult != null) {
@@ -1054,9 +1059,12 @@ class _TerminalScreenState extends State<TerminalScreen>
             var triedInstall = false;
             while (!quicConnected && bootstrapResult == null) {
               try {
-                bootstrapResult = server.useDaemon
-                    ? await bootstrapDaemonStrict(sshClient)
-                    : await bootstrapOnce(sshClient);
+                // No confirmContext: the port-restart question (if any) was
+                // already asked by the first bootstrap above.
+                bootstrapResult = await AqtTransportFactory.bootstrapFor(
+                  server,
+                  sshClient,
+                );
               } on AqtServerNotInstalledException {
                 if (triedInstall || !mounted) {
                   dlog('AQT', 'server not installed, no install prompt '

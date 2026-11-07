@@ -21,6 +21,64 @@ use std::path::PathBuf;
 ///
 /// 换句话说这是个待验证的假设，不是已知的改进。开关的意义就是让真机 A/B 能
 /// 一条命令切换，而不是靠重新编译。
+/// UDP 端口说明：`0`（系统随机）、单个端口 `N`，或闭区间 `A-B`。
+///
+/// 范围的意义是让用户能在防火墙/安全组里放行一段**确定的**端口，同时同一台
+/// 机器上的多个用户（各自一个 daemon）在段内自动错开，不会抢同一个端口。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PortSpec {
+    pub start: u16,
+    pub end: u16,
+}
+
+impl PortSpec {
+    pub const ANY: PortSpec = PortSpec { start: 0, end: 0 };
+
+    pub fn parse(s: &str) -> Option<Self> {
+        let num = |t: &str| -> Option<u16> {
+            if t.is_empty() || !t.bytes().all(|b| b.is_ascii_digit()) {
+                return None;
+            }
+            t.parse().ok()
+        };
+        match s.split_once('-') {
+            None => num(s).map(|p| PortSpec { start: p, end: p }),
+            Some((a, b)) => {
+                let (a, b) = (num(a)?, num(b)?);
+                // 0 只能单独出现（「随便给一个」），不能当范围端点。
+                (a > 0 && a <= b).then_some(PortSpec { start: a, end: b })
+            }
+        }
+    }
+
+    /// 绑定时依次尝试的端口：整段各一次，从随机位置开始循环。随机起点让
+    /// 同时启动的多个 daemon 不会都先撞同一个端口。
+    pub fn candidates(&self) -> Vec<u16> {
+        use std::hash::{BuildHasher, Hasher};
+        if *self == Self::ANY {
+            return vec![0];
+        }
+        let span = (self.end - self.start) as u64 + 1;
+        let offset = std::collections::hash_map::RandomState::new()
+            .build_hasher()
+            .finish()
+            % span;
+        (0..span)
+            .map(|i| self.start + ((offset + i) % span) as u16)
+            .collect()
+    }
+}
+
+impl std::fmt::Display for PortSpec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.start == self.end {
+            write!(f, "{}", self.start)
+        } else {
+            write!(f, "{}-{}", self.start, self.end)
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CongestionKind {
     Cubic,
@@ -48,7 +106,7 @@ impl CongestionKind {
 #[derive(Debug, Clone)]
 pub struct Cli {
     pub once: bool,
-    pub listen: Option<u16>,
+    pub listen: Option<PortSpec>,
     pub bind: String,
     pub max_sessions: u32,
     pub max_tabs_per_session: u32,
@@ -70,7 +128,7 @@ pub struct Cli {
     pub state_dir: Option<PathBuf>,
     pub term: String,
     pub grace_seconds: u64,
-    pub once_port: Option<u16>,
+    pub once_port: Option<PortSpec>,
     pub status: bool,
     /// Runtime kill switch for LZ4 compression. Even when the `compression`
     /// cargo feature is compiled in, this flag forces `allow_compression=false`
@@ -131,7 +189,15 @@ impl Cli {
         let val =
             |name: &str| -> Option<&str> { args.windows(2).find(|w| w[0] == name).map(|w| w[1]) };
 
-        let parse_u16 = |name: &str| -> Option<u16> { val(name).and_then(|v| v.parse().ok()) };
+        // 端口写错直接退出，不静默退回 once 模式 / 随机端口。
+        let parse_ports = |name: &str| -> Option<PortSpec> {
+            val(name).map(|v| {
+                PortSpec::parse(v).unwrap_or_else(|| {
+                    eprintln!("error: {name} expects PORT, 0 or START-END, got {v:?}");
+                    std::process::exit(1);
+                })
+            })
+        };
         let parse_u32 = |name: &str, default: u32| -> u32 {
             val(name).and_then(|v| v.parse().ok()).unwrap_or(default)
         };
@@ -140,7 +206,7 @@ impl Cli {
         };
 
         let once = flag("--once");
-        let listen = parse_u16("--listen");
+        let listen = parse_ports("--listen");
 
         if once && listen.is_some() {
             eprintln!("error: --once and --listen are mutually exclusive");
@@ -176,7 +242,7 @@ impl Cli {
             state_dir: val("--state-dir").map(PathBuf::from),
             term: val("--term").unwrap_or("xterm-256color").to_owned(),
             grace_seconds: parse_u64("--grace-seconds", 7 * 24 * 60 * 60),
-            once_port: parse_u16("--once-port"),
+            once_port: parse_ports("--once-port"),
             status: flag("--status"),
             no_compression: flag("--no-compression"),
             congestion,
@@ -198,7 +264,7 @@ impl Cli {
          \n\
          Options:\n\
            --once                Run in once mode (default)\n\
-           --listen PORT         Run as daemon on PORT\n\
+           --listen PORTS        Run as daemon on PORTS: N, START-END or 0 (random)\n\
            --bind ADDR           Bind address [default: 0.0.0.0]\n\
            --max-sessions N      [default: 100]\n\
            --max-tabs-per-session N  [default: 16]\n\
@@ -210,7 +276,7 @@ impl Cli {
            --state-dir PATH      State directory\n\
            --term TERM           [default: xterm-256color]\n\
            --grace-seconds N     [default: 604800]\n\
-           --once-port PORT      Fixed UDP port for once mode\n\
+           --once-port PORTS     UDP port(s) for once mode: N or START-END\n\
            --status              Print daemon status and exit\n\
            --no-compression      Disable LZ4 compression at runtime\n\
            --congestion ALGO     Congestion control: cubic|bbr [default: cubic]\n\
@@ -221,7 +287,7 @@ impl Cli {
 
     pub fn mode(&self) -> RunMode {
         match self.listen {
-            Some(port) => RunMode::Daemon { port },
+            Some(ports) => RunMode::Daemon { ports },
             None => RunMode::Once,
         }
     }
@@ -240,7 +306,7 @@ impl Cli {
 #[derive(Debug, Clone)]
 pub enum RunMode {
     Once,
-    Daemon { port: u16 },
+    Daemon { ports: PortSpec },
 }
 
 #[cfg(test)]
@@ -253,12 +319,12 @@ mod tests {
         let flag = |name: &str| raw.contains(&name);
         let val =
             |name: &str| -> Option<&str> { raw.windows(2).find(|w| w[0] == name).map(|w| w[1]) };
-        let pu16 = |n: &str| val(n).and_then(|v| v.parse().ok());
+        let pports = |n: &str| val(n).and_then(PortSpec::parse);
         let pu32 = |n: &str, d: u32| val(n).and_then(|v| v.parse().ok()).unwrap_or(d);
         let pu64 = |n: &str, d: u64| val(n).and_then(|v| v.parse().ok()).unwrap_or(d);
         Cli {
             once: flag("--once"),
-            listen: pu16("--listen"),
+            listen: pports("--listen"),
             bind: val("--bind").unwrap_or("0.0.0.0").to_owned(),
             max_sessions: pu32("--max-sessions", 100),
             max_tabs_per_session: pu32("--max-tabs-per-session", 16),
@@ -270,7 +336,7 @@ mod tests {
             state_dir: val("--state-dir").map(PathBuf::from),
             term: val("--term").unwrap_or("xterm-256color").to_owned(),
             grace_seconds: pu64("--grace-seconds", 7 * 24 * 60 * 60),
-            once_port: pu16("--once-port"),
+            once_port: pports("--once-port"),
             status: flag("--status"),
             no_compression: flag("--no-compression"),
             // 这个帮手是解析逻辑的副本，新 flag 一律另写用 `Cli::parse_from`
@@ -339,7 +405,12 @@ mod tests {
     fn listen_implies_daemon() {
         assert!(matches!(
             parse(&["--listen", "9876"]).mode(),
-            RunMode::Daemon { port: 9876 }
+            RunMode::Daemon {
+                ports: PortSpec {
+                    start: 9876,
+                    end: 9876
+                }
+            }
         ));
     }
     #[test]
@@ -404,5 +475,79 @@ mod tests {
     fn notify_text_containing_version_flag_is_not_swallowed() {
         let c = Cli::parse_from(&["flyterm-server", "notify", "bumped", "-V", "2.0"]);
         assert_eq!(c.notify.as_deref(), Some("bumped -V 2.0"));
+    }
+
+    #[test]
+    fn port_spec_parses_any_single_and_range() {
+        assert_eq!(PortSpec::parse("0"), Some(PortSpec::ANY));
+        assert_eq!(
+            PortSpec::parse("60000"),
+            Some(PortSpec {
+                start: 60000,
+                end: 60000
+            })
+        );
+        assert_eq!(
+            PortSpec::parse("61001-61999"),
+            Some(PortSpec {
+                start: 61001,
+                end: 61999
+            })
+        );
+    }
+
+    #[test]
+    fn port_spec_rejects_invalid() {
+        for s in [
+            "",
+            "-",
+            "abc",
+            "61999-61001",
+            "0-10",
+            "1-2-3",
+            "70000",
+            "100-70000",
+            " 1",
+        ] {
+            assert_eq!(PortSpec::parse(s), None, "{s:?} should be rejected");
+        }
+    }
+
+    #[test]
+    fn port_spec_candidates_cover_range_exactly_once() {
+        let mut c = PortSpec {
+            start: 61001,
+            end: 61010,
+        }
+        .candidates();
+        c.sort_unstable();
+        assert_eq!(c, (61001..=61010).collect::<Vec<u16>>());
+        assert_eq!(PortSpec::ANY.candidates(), vec![0]);
+    }
+
+    #[test]
+    fn listen_accepts_range() {
+        let c = Cli::parse_from(&["flyterm-server", "--listen", "61001-61999"]);
+        assert!(matches!(
+            c.mode(),
+            RunMode::Daemon {
+                ports: PortSpec {
+                    start: 61001,
+                    end: 61999
+                }
+            }
+        ));
+    }
+
+    #[test]
+    fn once_port_accepts_range() {
+        let c = Cli::parse_from(&["flyterm-server", "--once-port", "62000-62009"]);
+        assert_eq!(
+            c.once_port,
+            Some(PortSpec {
+                start: 62000,
+                end: 62009
+            })
+        );
     }
 }

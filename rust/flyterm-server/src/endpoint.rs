@@ -6,7 +6,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::Notify;
 
-use crate::cli::CongestionKind;
+use crate::cli::{CongestionKind, PortSpec};
 use crate::connection::ConnectionConfig;
 use crate::session::SessionStore;
 use crate::tls::ServerTlsMaterial;
@@ -15,6 +15,47 @@ pub struct EndpointHandle {
     pub endpoint: Endpoint,
     pub local_addr: SocketAddr,
     pub shutdown: Arc<Notify>,
+}
+
+/// 在 [ports] 指定的端口段里绑定：依次尝试段内各端口，被占用的跳过。
+///
+/// 只有「端口已被占用」会换下一个；其他绑定错误（地址不存在、权限不足等）
+/// 换端口也不会好，直接返回。整段都被占用时报错并带上端口段。
+pub fn build_endpoint_in(
+    bind_ip: &str,
+    ports: PortSpec,
+    tls: &ServerTlsMaterial,
+    congestion: CongestionKind,
+) -> Result<EndpointHandle> {
+    build_endpoint_from(bind_ip, &ports.candidates(), tls, congestion)
+        .map_err(|e| e.context(format!("no free UDP port in {ports}")))
+}
+
+/// [build_endpoint_in] 的确定性内核：按给定顺序尝试 [candidates]。
+fn build_endpoint_from(
+    bind_ip: &str,
+    candidates: &[u16],
+    tls: &ServerTlsMaterial,
+    congestion: CongestionKind,
+) -> Result<EndpointHandle> {
+    for &port in candidates {
+        let addr: SocketAddr = format!("{bind_ip}:{port}")
+            .parse()
+            .with_context(|| format!("invalid bind address {bind_ip}:{port}"))?;
+        match build_endpoint(addr, tls, congestion) {
+            Ok(h) => return Ok(h),
+            Err(e) if is_addr_in_use(&e) => continue,
+            Err(e) => return Err(e),
+        }
+    }
+    Err(anyhow::anyhow!("every candidate port is in use"))
+}
+
+fn is_addr_in_use(e: &anyhow::Error) -> bool {
+    e.chain().any(|c| {
+        c.downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::AddrInUse)
+    })
 }
 
 pub fn build_endpoint(
@@ -165,6 +206,58 @@ pub async fn accept_loop(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 段内有端口被占用时跳过它、绑到段内另一个空闲端口。
+    #[tokio::test]
+    async fn port_range_skips_occupied_port() -> Result<()> {
+        let tls = crate::tls::generate_ephemeral()?;
+        let squatter = std::net::UdpSocket::bind("127.0.0.1:0")?;
+        let taken = squatter.local_addr()?.port();
+        let free_neighbour = std::net::UdpSocket::bind(("127.0.0.1", taken + 1)).is_ok();
+        if !free_neighbour {
+            return Ok(()); // 相邻端口恰好被别人占着，构造不出这个场景
+        }
+        // 被占的排在前面，确定性地走「跳过、换下一个」这条路径。
+        let h = build_endpoint_from(
+            "127.0.0.1",
+            &[taken, taken + 1],
+            &tls,
+            CongestionKind::Cubic,
+        )?;
+        assert_eq!(h.local_addr.port(), taken + 1);
+        h.endpoint.close(0u32.into(), b"test");
+        drop(squatter);
+        Ok(())
+    }
+
+    /// 整段都被占用时报错，错误信息里带上端口段，方便用户对照安全组。
+    #[tokio::test]
+    async fn port_range_all_occupied_reports_range() -> Result<()> {
+        let tls = crate::tls::generate_ephemeral()?;
+        let squatter = std::net::UdpSocket::bind("127.0.0.1:0")?;
+        let taken = squatter.local_addr()?.port();
+        let ports = PortSpec {
+            start: taken,
+            end: taken,
+        };
+        let err = build_endpoint_in("127.0.0.1", ports, &tls, CongestionKind::Cubic)
+            .err()
+            .expect("all ports occupied must fail");
+        assert!(
+            format!("{err:#}").contains(&format!("no free UDP port in {taken}")),
+            "{err:#}"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn port_spec_any_binds_random_port() -> Result<()> {
+        let tls = crate::tls::generate_ephemeral()?;
+        let h = build_endpoint_in("127.0.0.1", PortSpec::ANY, &tls, CongestionKind::Cubic)?;
+        assert!(h.local_addr.port() != 0);
+        h.endpoint.close(0u32.into(), b"test");
+        Ok(())
+    }
 
     #[tokio::test]
     async fn endpoint_binds_random_port() -> Result<()> {
