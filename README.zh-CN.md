@@ -53,8 +53,7 @@ coding agent 的模型是单机、单工作目录。
 ## 安装
 
 从 [Releases](https://github.com/bytemind-ai/flyterm/releases) 下载 APK，或自己
-构建（见下）。Google Play 和 App Store 的收费商店版正在筹备中，用于支持开发；
-源码构建免费且功能全开。
+构建（见下）。所有功能免费，没有任何内购。
 
 ## 构建
 
@@ -72,12 +71,6 @@ scripts/build_apk.sh
 
 如果 `PATH` 里没有符合版本要求的 `flutter`，显式指给脚本：
 `export FLYTERM_FLUTTER=/path/to/flutter/bin/flutter`。
-
-**源码构建全功能解锁，而且这是默认行为** —— 你不需要传任何参数。内购路径是
-编译期 opt-in 的，靠 `--dart-define=FLYTERM_ENABLE_IAP=true` 开启，只有商店版
-会用（`scripts/build_apk.sh --release-build`）。不带这个 flag 时，功能闸门永远
-放行、付费墙打不开、内购层在启动时直接短路 —— 它连 billing client 都不会构造，
-更不会去联系任何商店。
 
 **签名。** 打 release APK 正常需要 `android/key.properties` 里的凭据（该文件和
 keystore 本体都不进 git）。你多半没有，所以缺凭据时 `scripts/build_apk.sh` 会

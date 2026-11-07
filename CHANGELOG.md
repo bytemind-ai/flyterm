@@ -20,6 +20,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   for the session; **Always use the SSH channel** skips the UDP attempt. The
   status dot and server list show `QUIC·SSH` while it is in use.
 
+### Removed
+- In-app purchases and "FlyTerm Pro". The paywall, the Pro status card in
+  Settings (and its now-empty Account section), purchase restore and every
+  feature gate are gone; tunnels, QUIC/Mosh and SFTP are simply available.
+  The `in_app_purchase` dependency, the `FLYTERM_ENABLE_IAP` build flag,
+  `scripts/build_apk.sh --release-build` and the second CI test run went
+  with them. The privacy policy and terms no longer describe payments.
+
 ### Fixed
 - QUIC sessions on hosts whose environment says `LANG=C` / `LC_ALL=C` (common
   on minimal images) showed CJK text as `???`. flyterm-server now gives the

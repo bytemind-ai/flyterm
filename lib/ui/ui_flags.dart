@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
-/// UI 可见性的编译期开关。
-///
-/// 与 `lib/commerce/feature_flags.dart` 分开：那个管商业化（Pro 解锁与
-/// Paywall），这个管「某块 UI 露不露面」。两者的决策人和生命周期都不同，
-/// 混在一个文件里迟早会让「测试构建」和「功能下线」这两件事互相绊住。
+/// UI 可见性的编译期开关：管「某块 UI 露不露面」。
 
 /// 后台任务看板是否对用户可见。
 ///

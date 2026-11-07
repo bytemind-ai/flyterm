@@ -8,7 +8,6 @@ import 'package:sqflite/sqflite.dart' show Database;
 
 import 'package:flyterm/ai/agent/agent_session_manager.dart';
 import 'package:flyterm/ai/ai_provider_service.dart';
-import 'package:flyterm/commerce/entitlement_service.dart';
 import 'package:flyterm/consent/consent_manager.dart';
 import 'package:flyterm/data/database.dart';
 import 'package:flyterm/data/keybar_settings.dart';
@@ -56,8 +55,6 @@ void main() {
     final storage = SecureStorageService();
     await tester.pumpWidget(MultiProvider(
       providers: [
-        ChangeNotifierProvider<EntitlementService>.value(
-            value: EntitlementService()),
         ChangeNotifierProvider<ConsentManager>.value(value: ConsentManager()),
         ChangeNotifierProvider<TerminalSettings>.value(
             value: TerminalSettings(storage)),
@@ -87,7 +84,7 @@ void main() {
 
   testWidgets('8 个段头按序存在', (tester) async {
     await pump(tester);
-    const expected = ['账户', '外观', '输入', '连接', '安全', 'AI', '数据与隐私', '关于'];
+    const expected = ['外观', '输入', '连接', '安全', 'AI', '数据与隐私', '关于'];
     final ys = <double>[];
     for (final label in expected) {
       final f = find.text(label);

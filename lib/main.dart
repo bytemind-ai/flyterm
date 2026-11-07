@@ -51,8 +51,6 @@ import 'ui/dialogs/host_key_dialog.dart';
 import 'ui/notifications/notify_orchestrator.dart';
 import 'ui/terminal/split_manager.dart';
 import 'app_control/app_control_service.dart';
-import 'commerce/entitlement_service.dart';
-import 'commerce/purchase_service.dart';
 import 'consent/consent_manager.dart';
 import 'telemetry/sentry_init.dart';
 import 'telemetry/crash_zone.dart';
@@ -101,14 +99,6 @@ void main() async {
 Future<void> _initApp() async {
   SshForegroundService.init();
   await NotificationService.init();
-
-  // S1 — Billing init deferred to AFTER runApp. UI at first frame doesn't
-  // read PurchaseService / EntitlementService directly (paywall_screen +
-  // server_form_screen only read on user action); both are ChangeNotifiers,
-  // so when their async init completes, listeners (e.g. feature gates)
-  // rebuild via notifyListeners(). Removes 500-1500ms of Play Billing
-  // network handshake from cold-start critical path.
-  final purchaseService = PurchaseService();
 
   final db = await AppDatabase.open();
   final storage = SecureStorageService();
@@ -504,8 +494,6 @@ Future<void> _initApp() async {
         ChangeNotifierProvider.value(value: tunnelManager),
         ChangeNotifierProvider.value(value: splitManager),
         ChangeNotifierProvider.value(value: ConsentManager.instance),
-        ChangeNotifierProvider.value(value: EntitlementService.instance),
-        Provider.value(value: purchaseService),
         // app 自身控制的门面。**进程级单例** —— 撤销栈跟着全局走，见
         // AgentAssemblyDeps.appControl 的注释。
         //
@@ -544,12 +532,6 @@ Future<void> _initApp() async {
 
   // Non-blocking: loads saved tunnels and reconnects autoStart ones
   tunnelManager.restoreFromDb(serverRepo, storage);
-
-  // S1 — Billing init AFTER runApp. EntitlementService reads SharedPrefs
-  // cache (fast); PurchaseService.init queries Play Billing (slow, network).
-  // Both ChangeNotifiers — UI rebuilds when load completes.
-  unawaited(EntitlementService.instance.load());
-  unawaited(purchaseService.init());
 
   // Android 13+ 运行时通知权限。放在 runApp 之后、fire-and-forget——拒绝
   // 也不影响首帧，只是退化为"前台 SnackBar 仍工作，后台系统通知不出现"。

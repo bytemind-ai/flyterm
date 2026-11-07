@@ -32,9 +32,6 @@ flutter test
 # Run a single test file
 flutter test test/data/keybar_config_test.dart
 
-# Store-build semantics (the IAP-enabled second run; also a CI gate)
-flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true
-
 # Static analysis — must report zero errors
 flutter analyze
 
@@ -47,14 +44,6 @@ scripts/build-server-assets.sh
 # Build (single entry point)
 scripts/build_apk.sh
 ```
-
-> **In-app purchases default to OFF.** `kEnableInAppPurchase`
-> (`lib/commerce/feature_flags.dart`) is `false` unless
-> `--dart-define=FLYTERM_ENABLE_IAP=true` is passed, so a build from source is
-> fully unlocked with no flag. Only store builds pass the flag. Tests run
-> twice for this reason — bare `flutter test` covers the open-source default,
-> and `flutter test test/commerce/ --dart-define=FLYTERM_ENABLE_IAP=true`
-> covers the store semantics. Both are CI gates.
 
 ## Testing Notes
 

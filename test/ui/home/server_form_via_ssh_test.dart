@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flyterm/ai/ai_provider_service.dart';
-import 'package:flyterm/commerce/entitlement_service.dart';
 import 'package:flyterm/data/database.dart';
 import 'package:flyterm/data/repositories/ssh_key_repository.dart';
 import 'package:flyterm/data/repositories/server_repository.dart';
@@ -45,7 +44,6 @@ void main() {
           Provider.value(value: ServerRepository(db)),
           Provider.value(value: SSHKeyRepository(db)),
           Provider.value(value: SecureStorageService()),
-          ChangeNotifierProvider.value(value: EntitlementService()),
           ChangeNotifierProvider.value(value: AIProviderService(prefs)),
         ],
         child: MaterialApp(
