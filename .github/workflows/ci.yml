@@ -78,7 +78,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: '1.99'
-          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+          targets: x86_64-unknown-linux-musl,aarch64-unknown-linux-musl,aarch64-linux-android
 
       - run: sudo apt-get update && sudo apt-get install -y musl-tools
 
@@ -89,7 +89,15 @@ jobs:
           version: 0.13.0
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-zigbuild
+          tool: cargo-zigbuild,cargo-ndk
+
+      # Gradle 的 buildAqtClientFfi 用 cargo-ndk 交叉编译 Rust FFI，NDK 取自
+      # ANDROID_NDK_HOME。runner 预设它指向别的 NDK 版本；改成与
+      # android.ndkVersion 一致（AGP 在配置阶段会自动装好这个版本）。
+      - name: Pin ANDROID_NDK_HOME to android.ndkVersion
+        run: |
+          NDK_VER=$(sed -n 's/.*ndkVersion = "\(.*\)".*/\1/p' android/app/build.gradle.kts)
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$NDK_VER" >> "$GITHUB_ENV"
 
       - run: flutter pub get
       - run: flutter gen-l10n

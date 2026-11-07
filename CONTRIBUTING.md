@@ -107,9 +107,13 @@ linked musl binary for two architectures, and the client FFI library
 
 ```bash
 rustup toolchain install 1.99
-rustup target add --toolchain 1.99 x86_64-unknown-linux-musl aarch64-unknown-linux-musl
+rustup target add --toolchain 1.99 x86_64-unknown-linux-musl aarch64-unknown-linux-musl aarch64-linux-android
 sudo apt-get install -y musl-tools     # provides x86_64-linux-musl-gcc
+cargo install --locked cargo-ndk       # builds libaqt_client_ffi.so for Android
 ```
+
+The Android build fails fast (`verifyAqtNativeLib`) if `cargo-ndk` is missing
+and no `libaqt_client_ffi.so` is present: the library is not kept in git.
 
 The aarch64 musl target is cross-compiled with `cargo-zigbuild`, because the
 `ring` crate's NEON assembly requires a real cross `gcc`. That needs **zig 0.13**,
