@@ -27,7 +27,7 @@ pub struct ConnectionConfig {
     pub parser_scrollback_rows: usize,
     pub max_tabs_per_session: u32,
     pub term: String,
-    /// Master switch: if false the server refuses to confirm CAP_ZSTD in
+    /// Master switch: if false the server refuses to confirm CAP_LZ4 in
     /// HelloAck regardless of what the client advertises. Production sets it
     /// to false until the rendering-residue root cause is fixed; tests set
     /// it to true to exercise the compressed path.
@@ -94,10 +94,10 @@ pub async fn handle(conn: Connection, store: SessionStore, cfg: ConnectionConfig
                 }
                 let token = store.create().await
                     .ok_or_else(|| anyhow!("session quota exceeded (max_sessions limit); try --max-sessions or wait for old sessions to expire"))?;
-                // Negotiate zstd compression: requires BOTH the client to
-                // advertise CAP_ZSTD AND the server's master switch to be on.
-                // The latter is gated to false in production (see main.rs)
-                // until rendering-residue root cause is identified.
+                // Negotiate LZ4 compression: requires BOTH the client to
+                // advertise CAP_LZ4 AND the server's master switch to be on.
+                // Production builds compile the feature in and nothing passes
+                // --no-compression (see main.rs), so this is on by default.
                 let compression = (hello.capabilities & CAP_LZ4) != 0 && cfg.allow_compression;
                 // Touch the new session immediately so its TTL starts from now,
                 // and persist the compression flag for any later RESUME.
@@ -108,7 +108,7 @@ pub async fn handle(conn: Connection, store: SessionStore, cfg: ConnectionConfig
                     })
                     .await;
                 let server_caps = if compression { CAP_LZ4 } else { 0 };
-                log::info!("HELLO accepted; zstd={}", compression);
+                log::info!("HELLO accepted; lz4={}", compression);
                 write_frame(
                     &mut tx,
                     &HelloAck {

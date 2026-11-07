@@ -32,7 +32,7 @@ pub struct AqtSession {
     pub expires_at: Instant,
     pub tabs: HashMap<u32, AqtTab>,
     pub next_tab_id: u32,
-    /// Set during HELLO if both sides advertised CAP_ZSTD. Sticky for the
+    /// Set during HELLO if both sides advertised CAP_LZ4. Sticky for the
     /// session lifetime — RESUMEs inherit it via the session store.
     pub compression_enabled: bool,
     /// 待投递的通知事件。见 notify::queue。

@@ -130,8 +130,8 @@ $CARGO $TOOLCHAIN build --release \
 # Note: history and persist-sessions are excluded from the default APK build.
 # They add ~550 KB (bundled sqlite3) and are not required for basic PTY use.
 # Compression: feature stays ENABLED so the LZ4 code path is present in the
-# binary. Disable at runtime via `--no-compression` flag (used by the client
-# bootstrap commands until we finish diagnosing the rendering-residue bug).
+# binary and on by default (the client always advertises CAP_LZ4). Disable at
+# runtime with `--no-compression` to isolate compression while diagnosing.
 cp target/x86_64-unknown-linux-musl/release/flyterm-server \
    "$ASSETS/flyterm-server-linux-x86_64"
 echo "==> x86_64 binary copied."

@@ -14,7 +14,7 @@ use std::time::Duration;
 use aqt_client_ffi::client::{connect, make_client_endpoint};
 use aqt_protocol::{
     decode_frame_header, encode_frame, frame::Notify, Disposition, FramePayload, Hello, HelloAck,
-    OpenTab, OpenTabAck, OpenTabStatus, Resume, ResumeAck, PROTOCOL_VERSION,
+    OpenTab, OpenTabAck, OpenTabStatus, Resume, ResumeAck, CAP_LZ4, PROTOCOL_VERSION,
 };
 use base64::Engine as _;
 use bytes::{Buf, BytesMut};
@@ -50,6 +50,10 @@ struct Daemon {
 }
 
 async fn start_daemon() -> anyhow::Result<Daemon> {
+    start_daemon_with(false).await
+}
+
+async fn start_daemon_with(allow_compression: bool) -> anyhow::Result<Daemon> {
     let tls = flyterm_server::tls::generate_ephemeral()?;
     let spki = base64::engine::general_purpose::STANDARD_NO_PAD.decode(&tls.spki_base64)?;
     let ep = flyterm_server::endpoint::build_endpoint(
@@ -67,7 +71,7 @@ async fn start_daemon() -> anyhow::Result<Daemon> {
         parser_scrollback_rows: 1000,
         max_tabs_per_session: 8,
         term: "xterm-256color".into(),
-        allow_compression: false,
+        allow_compression,
         history_root: None,
         notify_sock: Some(std::path::PathBuf::from(
             "/tmp/flyterm-test-notify-relay.sock",
@@ -122,13 +126,20 @@ async fn relay_path(daemon_port: u16) -> anyhow::Result<SocketAddr> {
 async fn hello(
     conn: &quinn::Connection,
 ) -> anyhow::Result<(quinn::SendStream, quinn::RecvStream, HelloAck)> {
+    hello_with(conn, 0).await
+}
+
+async fn hello_with(
+    conn: &quinn::Connection,
+    capabilities: u32,
+) -> anyhow::Result<(quinn::SendStream, quinn::RecvStream, HelloAck)> {
     let (mut tx, mut rx) = conn.open_bi().await?;
     let mut buf = BytesMut::new();
     encode_frame(
         &Hello {
             version: PROTOCOL_VERSION,
             client_id: [0x42; 16],
-            capabilities: 0,
+            capabilities,
         },
         &mut buf,
     )?;
@@ -207,13 +218,45 @@ async fn relay_handshake_and_pty_echo() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn relay_carries_bulk_pty_output_intact() -> anyhow::Result<()> {
-    let d = start_daemon().await?;
+/// Like [read_until], but for an LZ4 PTY stream: `[u32 BE len][block]`
+/// frames, each block decompressed the way the client FFI does.
+async fn read_until_lz4(rx: &mut quinn::RecvStream, needle: &str, secs: u64) -> String {
+    let mut out = Vec::new();
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(secs);
+    while tokio::time::Instant::now() < deadline {
+        let mut len = [0u8; 4];
+        match tokio::time::timeout(Duration::from_millis(300), rx.read_exact(&mut len)).await {
+            Ok(Ok(())) => {}
+            Ok(Err(_)) => break,
+            Err(_) => continue,
+        }
+        let mut block = vec![0u8; u32::from_be_bytes(len) as usize];
+        if rx.read_exact(&mut block).await.is_err() {
+            break;
+        }
+        let plain = aqt_protocol::lz4block::decompress_size_prepended(&block)
+            .unwrap_or_else(|e| panic!("lz4 block corrupt over the relay: {e:?}"));
+        out.extend_from_slice(&plain);
+        if String::from_utf8_lossy(&out).contains(needle) {
+            break;
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// 2000 lines through the relay, then every line checked in order.
+async fn bulk_over_relay(compress: bool) -> anyhow::Result<()> {
+    let d = start_daemon_with(compress).await?;
     let pump = relay_path(d.port).await?;
     let ep = make_client_endpoint(d.spki.clone())?;
     let conn = connect(&ep, pump, "aqt").await?;
-    let (mut ctrl_tx, mut ctrl_rx, _) = hello(&conn).await?;
+    let caps = if compress { CAP_LZ4 } else { 0 };
+    let (mut ctrl_tx, mut ctrl_rx, ack) = hello_with(&conn, caps).await?;
+    assert_eq!(
+        ack.server_caps & CAP_LZ4,
+        caps,
+        "compression not negotiated as asked"
+    );
     open_tab(&mut ctrl_tx, &mut ctrl_rx).await?;
     let (mut pty_tx, mut pty_rx) = conn.accept_bi().await?;
     pty_tx.write_all(b"stty -echo\n").await?;
@@ -226,7 +269,11 @@ async fn relay_carries_bulk_pty_output_intact() -> anyhow::Result<()> {
          done; printf '@@RELAY_BULK_DONE@@\\n'\n"
     );
     pty_tx.write_all(cmd.as_bytes()).await?;
-    let text = read_until(&mut pty_rx, "@@RELAY_BULK_DONE@@", 20).await;
+    let text = if compress {
+        read_until_lz4(&mut pty_rx, "@@RELAY_BULK_DONE@@", 20).await
+    } else {
+        read_until(&mut pty_rx, "@@RELAY_BULK_DONE@@", 20).await
+    };
     assert!(
         text.contains("@@RELAY_BULK_DONE@@"),
         "sentinel missing ({} bytes)",
@@ -242,6 +289,18 @@ async fn relay_carries_bulk_pty_output_intact() -> anyhow::Result<()> {
     }
     exit_shell(&mut pty_tx, &mut pty_rx).await;
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn relay_carries_bulk_pty_output_intact() -> anyhow::Result<()> {
+    bulk_over_relay(false).await
+}
+
+/// Compression is on in production (both sides advertise CAP_LZ4), and the
+/// relay is where it pays most — QUIC over TCP over SSH is bandwidth-bound.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn relay_carries_bulk_lz4_output_intact() -> anyhow::Result<()> {
+    bulk_over_relay(true).await
 }
 
 /// The SSH channel is lost (network switch): the App opens a NEW channel +
