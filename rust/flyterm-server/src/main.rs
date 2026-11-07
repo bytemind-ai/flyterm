@@ -20,6 +20,18 @@ fn pid_alive(pid: i32) -> bool {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // --relay: a pipe between the SSH channel (stdin/stdout) and the local
+    // daemon. No state dir, no logging setup, nothing else.
+    if let Some(port) = cli.relay {
+        if let Err(e) =
+            flyterm_server::relay::run(port, tokio::io::stdin(), tokio::io::stdout()).await
+        {
+            eprintln!("relay: {e:#}");
+            std::process::exit(2);
+        }
+        return Ok(());
+    }
+
     // Resolve state_dir early — needed for both --status and daemon mode.
     let state_dir = cli.state_dir.clone().unwrap_or_else(|| {
         let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());

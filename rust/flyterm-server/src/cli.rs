@@ -150,6 +150,10 @@ pub struct Cli {
     /// 然后退出。裸子命令而非 flag，因为它是用户手打进
     /// `make && flyterm notify "done"` 这类命令链的。
     pub notify: Option<String>,
+    /// `--relay PORT`: relay framed QUIC packets between stdin/stdout and
+    /// the daemon at `127.0.0.1:PORT` (QUIC over an SSH channel, see
+    /// `relay.rs`). Exclusive with every other mode.
+    pub relay: Option<u16>,
 }
 
 impl Cli {
@@ -208,10 +212,13 @@ impl Cli {
         let once = flag("--once");
         let listen = parse_ports("--listen");
 
-        if once && listen.is_some() {
-            eprintln!("error: --once and --listen are mutually exclusive");
-            std::process::exit(1);
-        }
+        let relay = val("--relay").map(|v| match v.parse::<u16>() {
+            Ok(p) if p > 0 => p,
+            _ => {
+                eprintln!("error: --relay expects a port 1-65535, got {v:?}");
+                std::process::exit(1);
+            }
+        });
 
         // 拼错的值直接退出，不静默回退到默认。
         //
@@ -228,7 +235,7 @@ impl Cli {
             },
         };
 
-        Cli {
+        let cli = Cli {
             once,
             listen,
             bind: val("--bind").unwrap_or("0.0.0.0").to_owned(),
@@ -248,7 +255,13 @@ impl Cli {
             congestion,
             install: flag("--install"),
             notify: None,
+            relay,
+        };
+        if let Err(e) = check_mode_conflicts(&cli) {
+            eprintln!("error: {e}");
+            std::process::exit(1);
         }
+        cli
     }
 
     /// 全默认值的 Cli。notify 子命令走早退分支，不需要解析其余 flag。
@@ -282,6 +295,7 @@ impl Cli {
            --congestion ALGO     Congestion control: cubic|bbr [default: cubic]\n\
                                  bbr is experimental (quinn BBRv1); see --help notes\n\
            --install             Install/upgrade self as daemon (replaces running daemon)\n\
+           --relay PORT          Relay framed UDP packets between stdin/stdout and 127.0.0.1:PORT\n\
            -h, --help            Show this help\n"
     }
 
@@ -301,6 +315,20 @@ impl Cli {
     pub fn scrollback_lines_cap(&self) -> usize {
         self.scrollback_max_lines.min(20_000) as usize
     }
+}
+
+/// Modes that cannot be combined. `--relay` is a pure pipe and excludes
+/// every daemon/once/maintenance mode.
+pub fn check_mode_conflicts(cli: &Cli) -> Result<(), String> {
+    if cli.once && cli.listen.is_some() {
+        return Err("--once and --listen are mutually exclusive".into());
+    }
+    if cli.relay.is_some() && (cli.once || cli.listen.is_some() || cli.install || cli.status) {
+        return Err(
+            "--relay cannot be combined with --once, --listen, --install or --status".into(),
+        );
+    }
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -345,6 +373,7 @@ mod tests {
             congestion: CongestionKind::Cubic,
             install: flag("--install"),
             notify: None,
+            relay: None,
         }
     }
 
@@ -475,6 +504,27 @@ mod tests {
     fn notify_text_containing_version_flag_is_not_swallowed() {
         let c = Cli::parse_from(&["flyterm-server", "notify", "bumped", "-V", "2.0"]);
         assert_eq!(c.notify.as_deref(), Some("bumped -V 2.0"));
+    }
+
+    #[test]
+    fn relay_parses_port() {
+        let c = Cli::parse_from(&["flyterm-server", "--relay", "61005"]);
+        assert_eq!(c.relay, Some(61005));
+        assert_eq!(Cli::parse_from(&["flyterm-server"]).relay, None);
+    }
+
+    #[test]
+    fn relay_conflicts_with_other_modes() {
+        let mut c = Cli::parse_from(&["flyterm-server", "--relay", "61005"]);
+        assert!(check_mode_conflicts(&c).is_ok());
+        c.listen = Some(PortSpec::ANY);
+        assert!(check_mode_conflicts(&c).is_err());
+        let mut c = Cli::parse_from(&["flyterm-server", "--relay", "61005"]);
+        c.install = true;
+        assert!(check_mode_conflicts(&c).is_err());
+        let mut c = Cli::parse_from(&["flyterm-server", "--relay", "61005"]);
+        c.status = true;
+        assert!(check_mode_conflicts(&c).is_err());
     }
 
     #[test]
