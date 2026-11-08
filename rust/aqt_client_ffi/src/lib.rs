@@ -9,5 +9,6 @@ pub mod error;
 #[allow(unsafe_code)]
 pub mod ffi;
 pub mod handle;
+pub mod routed_socket;
 pub mod runtime;
 pub mod session;
