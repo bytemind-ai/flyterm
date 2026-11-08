@@ -91,6 +91,12 @@ jobs:
 
       # 无 dart-define = 全功能解锁（开源构建）。
       # 不传 -PallowDebugSigning —— 走上面还原出来的正式签名路径。
+      # Before the APK: the app bundles these binaries to install / upgrade
+      # the server on remote hosts. Built after the APK they only reached the
+      # release page, never the app (0.7.0–0.9.0).
+      - name: Build flyterm-server binaries
+        run: scripts/build-server-assets.sh --force
+
       - name: Build release APK
         run: |
           flutter build apk --release --split-per-abi \
@@ -108,8 +114,8 @@ jobs:
             exit 1
           fi
 
-      - name: Build flyterm-server binaries
-        run: scripts/build-server-assets.sh --force
+      - name: Verify the APK bundles flyterm-server
+        run: python3 scripts/verify_apk_server_assets.py build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
       - uses: softprops/action-gh-release@v2
         with:

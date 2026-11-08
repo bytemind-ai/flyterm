@@ -310,6 +310,14 @@ tasks.register("ensureServerAssetsFresh") {
 tasks.named("preBuild") {
     dependsOn("ensureServerAssetsFresh")
 }
+// preBuild alone is not enough: Flutter's compileFlutterBuild<Variant> runs
+// `flutter assemble`, which copies assets/ into the APK, and it does not
+// depend on preBuild — so it could bundle an empty assets/flyterm-server/.
+// That is how 0.7.0–0.9.0 shipped without the server. Order it explicitly;
+// scripts/verify_apk_server_assets.py checks the result in CI.
+tasks.matching { it.name.startsWith("compileFlutterBuild") }.configureEach {
+    dependsOn("ensureServerAssetsFresh")
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 flutter {

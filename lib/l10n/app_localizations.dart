@@ -6184,6 +6184,12 @@ abstract class AppLocalizations {
   /// **'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.'**
   String get aqtRelayUnsupported;
 
+  /// No description provided for @aqtServerUpgradeFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update FlyTerm Server on this host: {error}'**
+  String aqtServerUpgradeFailed(String error);
+
   /// No description provided for @aqtRelayStartFailed.
   ///
   /// In en, this message translates to:

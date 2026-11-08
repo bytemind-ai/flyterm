@@ -1308,7 +1308,7 @@ class _TerminalScreenState extends State<TerminalScreen>
     } catch (e) {
       if (mounted)
         setState(() {
-          _connectError = e.toString();
+          _connectError = AqtTransportFactory.describeConnectError(context, e);
         });
     }
   }
