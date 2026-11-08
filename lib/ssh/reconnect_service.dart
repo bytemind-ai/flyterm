@@ -669,6 +669,8 @@ class ReconnectService with WidgetsBindingObserver {
       onResume: () => unawaited(_proactiveResumeAqtTab(tab,
           source: ResumeTrigger.watchdog, fromMachine: true)),
       onBootstrap: () => unawaited(_reconnectWithRetry(tab)),
+      // 路线切换由后续任务接入；Facts.canSwitchPath 目前恒为 false，不会触发。
+      onPathSwitch: () {},
       onClose: next.close,
       onBanner: (code) => _setReconnectMessage(
         tab,

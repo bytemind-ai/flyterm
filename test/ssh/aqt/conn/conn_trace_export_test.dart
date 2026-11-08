@@ -6,6 +6,7 @@ AqtConnRunner _runner() => AqtConnRunner(
       onProbe: () {},
       onResume: () {},
       onBootstrap: () {},
+      onPathSwitch: () {},
       onClose: () {},
       onBanner: (_) {},
       onClearBanner: () {},
