@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Showing or hiding the keyboard no longer makes full-screen programs (tmux,
+  vim, …) flash over SSH/QUIC. The terminal keeps showing the last picture
+  until the program's redraw for the new size has arrived (at most 1.5 s),
+  instead of a misaligned frame followed by the repaint. Mosh was not
+  affected.
+
 ## [0.9.0] - 2026-11-08
 
 ### Changed
