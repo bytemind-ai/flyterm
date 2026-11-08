@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-08
+
 ### Changed
 - QUIC now switches between direct UDP and the SSH channel inside the live
   connection, in both directions: when UDP is blocked mid-session, when it
