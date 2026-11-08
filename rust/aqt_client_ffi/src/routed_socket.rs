@@ -21,6 +21,10 @@ use quinn::{AsyncUdpSocket, UdpPoller};
 struct Route {
     current: SocketAddr,
     previous: Option<SocketAddr>,
+    /// Datagrams received from `current` since the last `set_target`.
+    /// Packets from `previous` are accepted but not counted, so a switch is
+    /// only confirmed by traffic that really came over the new route.
+    rx_current: u64,
 }
 
 pub struct RoutedSocket {
@@ -63,6 +67,7 @@ impl RoutedSocket {
             Route {
                 current: target,
                 previous: None,
+                rx_current: 0,
             },
             daemon_port,
         )
@@ -90,6 +95,13 @@ impl RoutedSocket {
         let mut r = self.route.lock().unwrap();
         r.previous = Some(r.current);
         r.current = addr;
+        r.rx_current = 0;
+    }
+
+    /// Datagrams received from the current target since the last
+    /// [`set_target`](Self::set_target).
+    pub fn rx_from_current(&self) -> u64 {
+        self.route.lock().unwrap().rx_current
     }
 
     pub fn target(&self) -> SocketAddr {
@@ -133,13 +145,22 @@ impl AsyncUdpSocket for RoutedSocket {
             Poll::Ready(Ok(n)) => n,
             other => return other,
         };
-        let Route { current, previous } = *self.route.lock().unwrap();
+        // Classify and count under the lock so a concurrent set_target
+        // cannot reset the counter between the two.
+        let mut route = self.route.lock().unwrap();
         for m in meta.iter_mut().take(n) {
-            match map_source(m.addr, current, previous, self.virtual_peer) {
-                Some(vp) => m.addr = vp,
+            let from_current = m.addr == route.current;
+            match map_source(m.addr, route.current, route.previous, self.virtual_peer) {
+                Some(vp) => {
+                    if from_current && m.len > 0 {
+                        route.rx_current += 1;
+                    }
+                    m.addr = vp;
+                }
                 None => m.len = 0,
             }
         }
+        drop(route);
         Poll::Ready(Ok(n))
     }
 
@@ -274,5 +295,28 @@ mod tests {
         c.send_to(b"x", r_addr).unwrap();
         let got = recv_entries(&r, 1).await;
         assert_eq!(got[0].1, 0);
+    }
+
+    #[tokio::test]
+    async fn rx_from_current_counts_only_current_and_resets_on_switch() {
+        let (a, a_addr) = peer();
+        let (b, b_addr) = peer();
+        let (r, r_addr) = routed(a_addr);
+        a.send_to(b"a", r_addr).unwrap();
+        recv_entries(&r, 1).await;
+        assert_eq!(r.rx_from_current(), 1);
+
+        r.set_target(b_addr);
+        assert_eq!(r.rx_from_current(), 0, "set_target resets the counter");
+        // A is now `previous`: still accepted, but not counted.
+        a.send_to(b"a", r_addr).unwrap();
+        recv_entries(&r, 1).await;
+        assert_eq!(r.rx_from_current(), 0);
+        b.send_to(b"b", r_addr).unwrap();
+        recv_entries(&r, 1).await;
+        assert_eq!(r.rx_from_current(), 1);
+
+        r.set_target(a_addr);
+        assert_eq!(r.rx_from_current(), 0, "reset again on the next switch");
     }
 }

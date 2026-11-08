@@ -84,6 +84,38 @@ void main() {
         isFalse);
   });
 
+  test('probeDirect stops polling once the transport is closed', () async {
+    var polls = 0;
+    var pollsAfterClose = 0;
+    var closed = false;
+    final t = AqtTransport.testStub(
+      port: 1,
+      spki: Uint8List(32),
+      probeImpl: (ip, port, spki, timeoutMs) => () {
+        polls++;
+        if (closed) pollsAfterClose++;
+        return -1;
+      },
+    );
+    final verdict = t.probeDirect('10.0.0.1', 61005);
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    expect(polls, greaterThan(0));
+    unawaited(t.close());
+    closed = true;
+    expect(await verdict.timeout(const Duration(seconds: 2)), isFalse);
+    expect(pollsAfterClose, 0,
+        reason: 'the native result slot of a closed handle must not be read');
+  });
+
+  test('pathRxImpl drives pathRxFromCurrent; -1 without a handle', () {
+    var rx = 0;
+    final t = AqtTransport.testStub(port: 1, pathRxImpl: () => rx);
+    expect(t.pathRxFromCurrent, 0);
+    rx = 3;
+    expect(t.pathRxFromCurrent, 3);
+    expect(AqtTransport.testStub(port: 1).pathRxFromCurrent, -1);
+  });
+
   test('recvAgeImpl drives lastRecvAgeMs', () {
     final t = AqtTransport.testStub(port: 1, recvAgeImpl: () => 4242);
     expect(t.lastRecvAgeMs, 4242);

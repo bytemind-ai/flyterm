@@ -1395,6 +1395,29 @@ pub unsafe extern "C" fn aqt_set_path(handle: *mut c_void, ip: *const c_char, po
     result.unwrap_or(AqtError::Panic.as_i32())
 }
 
+/// Datagrams received from the current real destination since the last
+/// [`aqt_set_path`] (packets still arriving from the previous route are not
+/// counted). The Dart side confirms a switch back to direct only when this
+/// goes above 0. Negative `NotConnected` when there is no routed socket.
+///
+/// # Safety
+/// `handle` must be a live handle (or null — handled).
+#[no_mangle]
+pub unsafe extern "C" fn aqt_path_rx_current(handle: *mut c_void) -> i64 {
+    if handle.is_null() {
+        return AqtError::NotConnected.as_i32() as i64;
+    }
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| -> i64 {
+        let h = &*(handle as *const SessionHandle);
+        let guard = h.path.lock().unwrap();
+        match guard.as_ref() {
+            Some(path) => path.socket.rx_from_current().min(i64::MAX as u64) as i64,
+            None => AqtError::NotConnected.as_i32() as i64,
+        }
+    }));
+    result.unwrap_or(AqtError::Panic.as_i32() as i64)
+}
+
 /// Start an asynchronous reachability probe of the direct path: a throwaway
 /// plain-socket endpoint completes a QUIC+TLS handshake (SPKI-pinned) with
 /// `host:port` and closes immediately — no HELLO is sent, so no session is

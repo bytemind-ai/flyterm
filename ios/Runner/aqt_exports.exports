@@ -7,6 +7,7 @@ _aqt_heartbeat
 _aqt_roam
 _aqt_rebind
 _aqt_set_path
+_aqt_path_rx_current
 _aqt_set_foreground
 _aqt_file_cancel
 _aqt_open_tab

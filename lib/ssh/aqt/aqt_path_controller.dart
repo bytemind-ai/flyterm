@@ -13,8 +13,8 @@ import 'conn/conn_types.dart';
 ///
 /// - 直连 → 中继：状态机发 `StartPathSwitch` 时 [onStartPathSwitch]。
 /// - 中继 → 直连：走中继期间按 [probeIntervals] 探测直连（失败升级、换网或
-///   切换成功后归零），探测通过后 `setPath` 过去，[confirmWindow] 内收到包
-///   才算数，否则切回中继。
+///   切换成功后归零），探测通过后 `setPath` 过去，[confirmWindow] 内从直连
+///   （当前目的地）收到数据报才算数，否则切回中继。
 /// - 换网（[onNetworkChanged]）：走中继时立即探测并同时重建中继，谁先成功
 ///   用谁。走直连时什么都不做 —— `migrateEndpoint()` 仍由调用方负责。
 /// - 中继自己断了：走中继时重建并探测；走直连时只清理。
@@ -50,7 +50,7 @@ class AqtPathController {
   /// 打开中继期间，收包间隔回落到这以下就算直连自己恢复了。
   static const int _recoveredMs = 3000;
 
-  /// 确认窗口内查 `lastRecvAgeMs` 的间隔。
+  /// 确认窗口内查 `pathRxFromCurrent` 的间隔。
   static const Duration _confirmStep = Duration(milliseconds: 100);
 
   bool _disposed = false;
@@ -71,6 +71,9 @@ class AqtPathController {
 
   Timer? _probeTimer;
   int _probeLevel = 0;
+
+  /// 每次把 [_probeLevel] 归零（换网）+1，在途探测据此判断还该不该升级。
+  int _levelGen = 0;
 
   /// 原生探测结果槽没有代号：同一时间只允许一次探测。在途时再来的请求只
   /// 记一笔，结束后补一次。
@@ -119,6 +122,7 @@ class AqtPathController {
     if (_disposed) return;
     _direct = null; // 换网后重新解析服务器地址
     _probeLevel = 0;
+    _levelGen++;
     if (_transport.route != AqtRoute.viaSsh) {
       _probeTimer?.cancel();
       return;
@@ -276,6 +280,7 @@ class AqtPathController {
       return;
     }
     _probing = true;
+    final levelGen = _levelGen;
     var switched = false;
     try {
       switched = await _probeAndSwitchBack();
@@ -285,15 +290,15 @@ class AqtPathController {
       _probing = false;
     }
     if (_disposed) return;
+    // 失败就升级，哪怕后面还排着一次补探测；但探测期间间隔被归零过
+    // （换网）就不升 —— 那次失败属于旧网络。
+    if (!switched && escalate && levelGen == _levelGen) _probeLevel++;
     if (_probeAgain) {
       _probeAgain = false;
       unawaited(_probe(escalate: false));
       return;
     }
-    if (!switched) {
-      if (escalate) _probeLevel++;
-      _scheduleProbe();
-    }
+    if (!switched) _scheduleProbe();
   }
 
   Future<bool> _probeAndSwitchBack() async {
@@ -321,7 +326,7 @@ class AqtPathController {
         _log('probe: setPath to direct refused');
         return false;
       }
-      if (await _trafficWithin(_confirmWindow)) {
+      if (await _directTrafficWithin(_confirmWindow)) {
         if (_disposed) return false;
         final old = _transport.replaceRelay(AqtRoute.direct, null);
         _epoch++;
@@ -334,7 +339,11 @@ class AqtPathController {
       if (_disposed) return false;
       final relay = _transport.relay;
       _log('probe: no traffic on direct within $_confirmWindow, back to relay');
-      if (relay != null) _transport.setPath('127.0.0.1', relay.localPort);
+      if (relay == null) {
+        _log('probe: no relay to revert to');
+      } else if (!_transport.setPath('127.0.0.1', relay.localPort)) {
+        _log('probe: revert setPath to relay :${relay.localPort} refused');
+      }
       return false;
     } finally {
       _confirming = null;
@@ -342,13 +351,17 @@ class AqtPathController {
     }
   }
 
-  /// [window] 内是否有包在 `setPath` 之后到达（收包间隔小于已过去的时间）。
-  Future<bool> _trafficWithin(Duration window) async {
+  /// [window] 内是否有数据报**从当前目的地**（刚切过去的直连）到达。
+  ///
+  /// 不能用 `lastRecvAgeMs`：它是 1 Hz 采样，切换前一秒内的包看起来也新鲜；
+  /// 而且 RoutedSocket 仍接收上一个目的地（中继）的在途包，它们也会刷新它。
+  /// 拿它确认会让死掉的直连「通过」，中继被关，会话卡死。
+  Future<bool> _directTrafficWithin(Duration window) async {
     var elapsed = Duration.zero;
     while (elapsed < window && !_disposed) {
       await Future<void>.delayed(_confirmStep);
       elapsed += _confirmStep;
-      if (_transport.lastRecvAgeMs < elapsed.inMilliseconds) return true;
+      if (_transport.pathRxFromCurrent > 0) return true;
     }
     return false;
   }
