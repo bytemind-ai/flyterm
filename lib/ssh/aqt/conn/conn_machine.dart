@@ -116,14 +116,7 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
       ),
     // 路线切换结束：成功与失败对状态机的效果相同 —— 清在途、立刻看一眼。
     // 失败时 pathSwitchUsed 保持 true，本 live 周期不再尝试。
-    PathSwitched() => (
-        s.copyWith(clearPathSwitchSince: true),
-        [const ScheduleTick(0)],
-      ),
-    PathSwitchFailed() => (
-        s.copyWith(clearPathSwitchSince: true),
-        [const ScheduleTick(0)],
-      ),
+    PathSwitched() || PathSwitchFailed() => _onPathSwitchDone(s),
     ConnectedOk() => _onConnected(s, f),
     ConnectFailed(:final reason) => _onFailed(s, f, reason),
     TransportClosed() => _enterRecovering(s, f),
@@ -184,6 +177,14 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
     // 唯一的决策处处理它 —— 而不是让它悄悄落进「什么都不做」。
   };
 }
+
+/// 切换在途时进了后台（LifecycleBackground 已 CancelTick、observeStartMs 清空），
+/// 完成事件只清在途，**不**重新拉起 tick —— 否则后台会跑 1Hz 循环，进而后台探测
+/// / RESUME。回前台时 LifecycleForeground 自会 ScheduleTick(0)。
+(MachineState, List<Action>) _onPathSwitchDone(MachineState s) => (
+      s.copyWith(clearPathSwitchSince: true),
+      s.observeStartMs != null ? const [ScheduleTick(0)] : const <Action>[],
+    );
 
 (MachineState, List<Action>) _onTick(MachineState s, Facts f) {
   // 熔断后不再自动做任何事，等 UserRefresh。

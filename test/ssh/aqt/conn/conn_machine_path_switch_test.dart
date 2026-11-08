@@ -149,4 +149,39 @@ void main() {
     (s, _) = step(s, const LifecycleBackground(), _f(7000, 7000));
     expect(s.pathSwitchSinceMs, isNull);
   });
+  // 切换在途时进后台：完成事件不能把 1Hz tick 重新拉起来（否则后台探测 / RESUME）。
+  machineCase('PathSwitched in background schedules no tick',
+      from: _live,
+      events: [
+        (const WatchdogTick(), _f(6500, 6500)),
+        (const LifecycleBackground(), _f(7000, 7000)),
+        (const PathSwitched(), _f(8000, 8000)),
+      ],
+      forbidActions: [ScheduleTick]);
+
+  machineCase('PathSwitchFailed in background schedules no tick',
+      from: _live,
+      events: [
+        (const WatchdogTick(), _f(6500, 6500)),
+        (const LifecycleBackground(), _f(7000, 7000)),
+        (const PathSwitchFailed(), _f(8000, 8000)),
+      ],
+      forbidActions: [ScheduleTick]);
+
+  test('completion in background still clears the in-flight switch', () {
+    var s = const MachineState(
+        phase: ConnPhase.live, pathSwitchSinceMs: 6500, pathSwitchUsed: true);
+    List<Action> a;
+    (s, a) = step(s, const PathSwitchFailed(), _f(8000, 8000));
+    expect(s.pathSwitchSinceMs, isNull);
+    expect(a, isEmpty);
+  });
+
+  test('PathSwitchFailed in foreground schedules tick 0', () {
+    var s = _live;
+    (s, _) = step(s, const WatchdogTick(), _f(6500, 6500));
+    List<Action> a;
+    (s, a) = step(s, const PathSwitchFailed(), _f(7000, 7000));
+    expect(a.whereType<ScheduleTick>().single.delayMs, 0);
+  });
 }
