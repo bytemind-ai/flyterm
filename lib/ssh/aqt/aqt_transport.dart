@@ -435,6 +435,10 @@ class AqtTransport implements RemoteTransport {
   /// How this transport reaches its daemon (see [AqtRoute]).
   AqtRoute get route => _route;
 
+  /// 当前挂着的 relay（直连时为 null）。路线控制器靠它判断「断掉的是不是
+  /// 正在用的那个」，以及探测失败后切回哪个端口。
+  AqtSshRelay? get relay => _relay;
+
   /// Marks this transport as running through an SSH relay (or not) and hands
   /// it what must live exactly as long as the QUIC connection: the [relay]
   /// and, on a first connect, the SSH connection it rides on
