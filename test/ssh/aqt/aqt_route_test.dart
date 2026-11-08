@@ -6,6 +6,8 @@ import 'package:flyterm/ssh/aqt/aqt_route.dart';
 
 void main() {
   group('connectWithRoute', () {
+    Future<void> noDiscard(String _) async {}
+
     test('force_via_ssh_skips_direct', () async {
       var directCalls = 0;
       final r = await connectWithRoute<String>(
@@ -16,27 +18,11 @@ void main() {
           return 'direct';
         },
         viaSsh: () async => 'relay',
+        discard: noDiscard,
       );
       expect(directCalls, 0);
       expect(r.value, 'relay');
       expect(r.route, AqtRoute.viaSsh);
-      expect(r.autoFellBack, isFalse, reason: '用户手动选择，不算自动降级');
-    });
-
-    test('cached_via_ssh_skips_direct', () async {
-      var directCalls = 0;
-      final r = await connectWithRoute<String>(
-        forceViaSsh: false,
-        cached: AqtRoute.viaSsh,
-        direct: () async {
-          directCalls++;
-          return 'direct';
-        },
-        viaSsh: () async => 'relay',
-      );
-      expect(directCalls, 0);
-      expect(r.route, AqtRoute.viaSsh);
-      expect(r.autoFellBack, isFalse);
     });
 
     test('direct_success_never_opens_relay', () async {
@@ -49,23 +35,87 @@ void main() {
           relayCalls++;
           return 'relay';
         },
+        discard: noDiscard,
       );
       expect(relayCalls, 0);
       expect(r.value, 'direct');
       expect(r.route, AqtRoute.direct);
-      expect(r.autoFellBack, isFalse);
     });
 
-    test('direct_failure_falls_back', () async {
+    test('relay starts after head start and wins', () async {
+      final never = Completer<String>();
+      final r = await connectWithRoute<String>(
+        forceViaSsh: false,
+        cached: null,
+        direct: () => never.future,
+        viaSsh: () async => 'relay',
+        discard: noDiscard,
+        relayHeadStart: const Duration(milliseconds: 20),
+      );
+      expect(r.value, 'relay');
+      expect(r.route, AqtRoute.viaSsh);
+    });
+
+    test('direct failure starts relay immediately', () async {
+      var relayCalls = 0;
+      final sw = Stopwatch()..start();
       final r = await connectWithRoute<String>(
         forceViaSsh: false,
         cached: null,
         direct: () async => throw TimeoutException('udp blocked'),
-        viaSsh: () async => 'relay',
+        viaSsh: () async {
+          relayCalls++;
+          return 'relay';
+        },
+        discard: noDiscard,
+        relayHeadStart: const Duration(seconds: 5),
+      );
+      expect(relayCalls, 1);
+      expect(r.route, AqtRoute.viaSsh);
+      expect(sw.elapsedMilliseconds, lessThan(1000));
+    });
+
+    test('cached via ssh races both', () async {
+      var directCalls = 0;
+      var relayCalls = 0;
+      final r = await connectWithRoute<String>(
+        forceViaSsh: false,
+        cached: AqtRoute.viaSsh,
+        direct: () async {
+          directCalls++;
+          return 'direct';
+        },
+        viaSsh: () async {
+          relayCalls++;
+          return 'relay';
+        },
+        discard: noDiscard,
+      );
+      expect(directCalls, 1);
+      expect(relayCalls, 1);
+      expect(r.value, isNotEmpty);
+    });
+
+    test('loser completing later is discarded', () async {
+      final discarded = <String>[];
+      final r = await connectWithRoute<String>(
+        forceViaSsh: false,
+        cached: null,
+        direct: () async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          return 'direct';
+        },
+        viaSsh: () async {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          return 'relay';
+        },
+        discard: (v) async => discarded.add(v),
+        relayHeadStart: Duration.zero,
       );
       expect(r.value, 'relay');
       expect(r.route, AqtRoute.viaSsh);
-      expect(r.autoFellBack, isTrue);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(discarded, ['direct']);
     });
 
     test('both_fail_reports_both', () async {
@@ -75,6 +125,7 @@ void main() {
           cached: null,
           direct: () async => throw StateError('udp-boom'),
           viaSsh: () async => throw StateError('relay-boom'),
+          discard: (_) async {},
         ),
         throwsA(isA<AqtRouteException>()
             .having((e) => e.toString(), 'message', contains('udp-boom'))
@@ -84,14 +135,12 @@ void main() {
   });
 
   group('AqtRouteCache', () {
-    test('remembers per server; fallback notice fires once', () {
+    test('remembers per server', () {
       final c = AqtRouteCache();
       expect(c.get('s1'), isNull);
       c.set('s1', AqtRoute.viaSsh);
       expect(c.get('s1'), AqtRoute.viaSsh);
       expect(c.get('s2'), isNull);
-      expect(c.markFallbackNotified('s1'), isTrue);
-      expect(c.markFallbackNotified('s1'), isFalse);
     });
   });
 
