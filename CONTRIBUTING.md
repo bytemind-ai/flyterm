@@ -203,8 +203,18 @@ Build-shape constraints for anything that could be published: release only
 ### iOS
 
 iOS builds are verified by the `ios-build` workflow (manual dispatch) and need
-macOS plus Xcode. There is nothing FlyTerm-specific beyond `flutter pub get` and
-a standard `flutter build ios`.
+macOS plus Xcode. Beyond `flutter pub get` and a standard `flutter build ios`,
+two Rust pieces are built:
+
+- `ios/build-aqt-xcframework.sh` builds the QUIC client library
+  (`AqtClientFfi.xcframework`); run it once, and again after Rust changes.
+- The Xcode build phase *Prepare flyterm-server* runs
+  `scripts/build-server-assets.sh` so the app bundles the Linux server
+  binaries it installs on remote hosts (skipped when they are fresh). macOS
+  has no musl cross compiler, so zig builds both architectures: install
+  zig 0.13 and the two linux-musl Rust targets as in the Rust prerequisites
+  above (musl-tools is not needed).
+  Release builds fail if either binary cannot be built.
 
 The Xcode project carries the maintainers' signing team
 (`DEVELOPMENT_TEAM = F8QR85A9N5`). To run on your own device, pick your team

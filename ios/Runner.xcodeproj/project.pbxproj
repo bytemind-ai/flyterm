@@ -203,6 +203,7 @@
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				597F83B2EC97C20FB7EE6274 /* [CP] Check Pods Manifest.lock */,
+				F1A5E7C0D2B34E6A9C8B7D01 /* Prepare flyterm-server */,
 				9740EEB61CF901F6004384FC /* Run Script */,
 				97C146EA1CF9000F007C117D /* Sources */,
 				97C146EB1CF9000F007C117D /* Frameworks */,
@@ -289,6 +290,21 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		F1A5E7C0D2B34E6A9C8B7D01 /* Prepare flyterm-server */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Prepare flyterm-server";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Bundles the Linux flyterm-server binaries (assets/flyterm-server/) that the\n# app uploads to servers for QUIC. Must run before Flutter copies assets.\n# Same role as ensureServerAssetsFresh on Android; skips when fresh.\nexport PATH=\"$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH\"\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  export FLYTERM_REQUIRE_AARCH64=1\nfi\n/bin/bash \"$SRCROOT/../scripts/build-server-assets.sh\"\n";
+		};
 		3B06AD1E1E4923F5004D2608 /* Thin Binary */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;

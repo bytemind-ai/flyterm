@@ -70,9 +70,21 @@ jobs:
             *)   echo "✅ $V" ;;
           esac
 
-      - uses: dtolnay/rust-toolchain@stable
+      # 1.99 与 rust/rust-toolchain.toml 一致（build-server-assets.sh 用
+      # `cargo +1.99`）。linux-musl 两个 target 给 Xcode 的
+      # 「Prepare flyterm-server」步骤编服务端用。
+      - uses: dtolnay/rust-toolchain@master
         with:
-          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          toolchain: '1.99'
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios,x86_64-unknown-linux-musl,aarch64-unknown-linux-musl
+
+      # macOS 没有 musl cross gcc，两个 Linux 服务端都靠 cargo-zigbuild。
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -94,6 +106,13 @@ jobs:
           du -sh build/ios/iphoneos/*.app
           echo "=== 嵌入的 Flutter framework ==="
           ls build/ios/iphoneos/Runner.app/Frameworks/ 2>/dev/null || true
+          # 包里没有服务端二进制，App 就没法给服务器装 flyterm-server，QUIC 全废。
+          echo "=== 内置的 flyterm-server ==="
+          A=build/ios/iphoneos/Runner.app/Frameworks/App.framework/flutter_assets/assets/flyterm-server
+          ls -la "$A"
+          for f in VERSION flyterm-server-linux-x86_64.gz flyterm-server-linux-aarch64.gz; do
+            [ -s "$A/$f" ] || { echo "::error::iOS 包缺少 $f"; exit 1; }
+          done
 
       # 打成未签名 IPA。iOS 不会安装未签名包，所以这个产物本身装不上，
       # 但可以在 Mac 上用 Sideloadly + 免费 Apple ID 自签后装真机（7 天有效），
