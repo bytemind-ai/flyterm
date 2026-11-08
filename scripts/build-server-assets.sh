@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Build musl static flyterm-server binary for both Linux targets,
-# copy to assets/flyterm-server/ for APK bundling.
+# copy to assets/flyterm-server/ for bundling into the APK / iOS app.
+# Called by Gradle (ensureServerAssetsFresh) and by the Xcode build phase
+# "Prepare flyterm-server" — runs on Linux and macOS.
 #
 # Required: rustup 1.99 toolchain with x86_64-unknown-linux-musl
-# and aarch64-unknown-linux-musl targets installed; musl-tools (apt);
-# zig 0.13 (aarch64 only); cargo-zigbuild (auto-installed if missing).
+# and aarch64-unknown-linux-musl targets installed; zig 0.13 and
+# cargo-zigbuild (auto-installed if missing). On Linux, musl-tools (apt)
+# builds x86_64 without zig; elsewhere (macOS) zig builds both.
 #
 # Options:
 #   --force, -f    rebuild even if assets already match current source
@@ -122,9 +125,33 @@ echo "==> Server SHA: $SERVER_SHA (written to rust/server-sha.txt)"
 # x86_64 版本号对不上，却照样被打进 APK。
 rm -f "$ASSETS"/flyterm-server-linux-*
 
-# x86_64: musl-tools 提供 x86_64-linux-musl-gcc, cargo build 直接走
-echo "==> Building x86_64 flyterm-server..."
-$CARGO $TOOLCHAIN build --release \
+# cargo-zigbuild（要 zig）：aarch64 必需；没有 musl cross gcc 的机器上
+# （macOS —— iOS 构建会调这个脚本）x86_64 也靠它。
+zig_rc=0
+# pip 装的 ziglang 不进 PATH，cargo-zigbuild 会经 python 模块找到它。
+if ! command -v zig >/dev/null \
+   && ! python3 -c "import ziglang" 2>/dev/null; then
+  echo "zig not found — install zig 0.13 (\`pip install ziglang==0.13.0\`," >&2
+  echo "your package manager, or https://ziglang.org/download/)." >&2
+  zig_rc=127
+elif ! command -v cargo-zigbuild >/dev/null; then
+  echo "==> Installing cargo-zigbuild..."
+  $CARGO $TOOLCHAIN install --locked cargo-zigbuild || zig_rc=$?
+fi
+
+# x86_64: Linux 上 musl-tools 提供 x86_64-linux-musl-gcc，cargo build 直接走；
+# 没有它就用 cargo-zigbuild。x86_64 是硬要求，两样都没有就失败。
+if command -v x86_64-linux-musl-gcc >/dev/null; then
+  X86_BUILD=build
+elif [ $zig_rc -eq 0 ]; then
+  X86_BUILD=zigbuild
+else
+  echo "ERROR: x86_64 needs x86_64-linux-musl-gcc (apt install musl-tools)" >&2
+  echo "       or zig 0.13 + cargo-zigbuild (macOS: brew install zig)." >&2
+  exit 1
+fi
+echo "==> Building x86_64 flyterm-server (cargo $X86_BUILD)..."
+$CARGO $TOOLCHAIN $X86_BUILD --release \
   --target x86_64-unknown-linux-musl -p flyterm-server \
   --features flyterm-server/compression
 # Note: history and persist-sessions are excluded from the default APK build.
@@ -136,21 +163,10 @@ cp target/x86_64-unknown-linux-musl/release/flyterm-server \
    "$ASSETS/flyterm-server-linux-x86_64"
 echo "==> x86_64 binary copied."
 
-# aarch64: ring crate 的 NEON 汇编需要 cross gcc，用 cargo-zigbuild（它要
-# zig）。本地默认软失败（只影响 ARM Linux 远端）；
-# FLYTERM_REQUIRE_AARCH64=1 时硬失败。
+# aarch64: ring crate 的 NEON 汇编需要 cross gcc，用 cargo-zigbuild。本地默认
+# 软失败（只影响 ARM Linux 远端）；FLYTERM_REQUIRE_AARCH64=1 时硬失败。
 echo "==> Building aarch64 flyterm-server via cargo-zigbuild..."
-aarch64_rc=0
-# pip 装的 ziglang 不进 PATH，cargo-zigbuild 会经 python 模块找到它。
-if ! command -v zig >/dev/null \
-   && ! python3 -c "import ziglang" 2>/dev/null; then
-  echo "zig not found — install zig 0.13 (\`pip install ziglang==0.13.0\`," >&2
-  echo "your package manager, or https://ziglang.org/download/)." >&2
-  aarch64_rc=127
-elif ! command -v cargo-zigbuild >/dev/null; then
-  echo "==> Installing cargo-zigbuild..."
-  $CARGO $TOOLCHAIN install --locked cargo-zigbuild || aarch64_rc=$?
-fi
+aarch64_rc=$zig_rc
 if [ $aarch64_rc -eq 0 ]; then
   set +e
   $CARGO $TOOLCHAIN zigbuild --release \
@@ -190,4 +206,4 @@ echo "$EXPECTED_VERSION" > "$ASSETS/VERSION"
 
 echo "==> Built assets:"
 ls -la "$ASSETS/"
-echo "Done. Run: flutter build apk --release ..."
+echo "Done."
