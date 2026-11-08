@@ -385,16 +385,21 @@ what the server sees are unchanged.
 Switching route is therefore just changing the target: the server sees a
 standard QUIC connection migration (RFC 9000 section 9), so the session
 survives with no RESUME. Only the daemon's address is ever persisted; the
-virtual peer is internal (the debug overlay shows the real host and route).
+virtual peer is internal (the debug overlay shows the route as `QUIC` /
+`QUIC·SSH`; it has no peer address).
 
 FFI (`lib/ssh/aqt/aqt_ffi.dart`, exported in `ios/Runner/aqt_exports.exports`):
 
 - `aqt_set_path(handle, ip, port)` sets the target and sends a 1-byte
   datagram to wake the new path. 0 on success, negative on error.
-- `aqt_probe_direct(host, port, spki, spki_len, timeout_ms)` does a throwaway
-  SPKI-verified QUIC handshake on a temporary endpoint and closes it without
-  HELLO. `aqt_probe_result` reads the outcome: 1 reachable, 0 unreachable or
-  timed out, negative error. It never touches the live session.
+- `aqt_probe_direct(handle, host, port, spki, spki_len, timeout_ms)` starts a
+  throwaway SPKI-verified QUIC handshake on a temporary endpoint and closes it
+  without HELLO. `host` must be an IP literal (a hostname is InvalidArg). It
+  returns 0 as soon as the probe has started, negative on bad arguments.
+- `aqt_probe_result(handle)` polls the outcome: -1 in progress, 1 reachable,
+  0 unreachable, timed out or handshake failed (including a bad SPKI);
+  negative only for a null handle (NotConnected). The probe never touches the
+  live session.
 
 Driven by `AqtPathController` (`lib/ssh/aqt/aqt_path_controller.dart`, one per
 session) and `conn_machine`:
@@ -413,8 +418,9 @@ session) and `conn_machine`:
 - **Network change.** On direct, `aqt_rebind` as before. On the relay, the
   SSH carrier dies, so a direct probe and a relay rebuild race and the first
   success wins. A relay that drops by itself is rebuilt (plus a probe).
-- Each direction fires at most once per live period to avoid flapping. No
-  switching in the background or when `aqtViaSsh` is set.
+- `StartPathSwitch` (silence-triggered) fires at most once per live period
+  in the state machine to avoid flapping; relay to direct follows the probe
+  schedule above. No switching in the background or when `aqtViaSsh` is set.
 
 - **Known limitation.** The daemon sees every relayed peer as 127.0.0.1, so
   the (off-by-default) history feature's per-IP session key lumps relayed
