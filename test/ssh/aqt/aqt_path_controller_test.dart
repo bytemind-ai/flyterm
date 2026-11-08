@@ -43,6 +43,9 @@ class _Exec implements AqtRelayExec {
 class _H {
   final FakeAsync fa = FakeAsync();
   int recvAge = 9000;
+
+  /// 模拟 Rust `rx_from_current`：每次 setPath 归零。
+  int pathRx = 0;
   bool fg = true;
   final setPaths = <(String, int)>[];
   bool setPathOk = true;
@@ -65,8 +68,10 @@ class _H {
       port: _daemonPort,
       spki: Uint8List.fromList([1, 2, 3]),
       recvAgeImpl: () => recvAge,
+      pathRxImpl: () => pathRx,
       setPathImpl: (ip, port) {
         setPaths.add((ip, port));
+        pathRx = 0;
         onSetPath?.call(ip, port);
         return setPathOk;
       },
@@ -223,7 +228,7 @@ void main() {
       expect(h.probeCalls, 1);
       expect(h.setPaths, [(_serverIp, _daemonPort)]);
       async.elapse(const Duration(milliseconds: 500));
-      h.recvAge = 100; // 新路径上来了包
+      h.pathRx = 2; // 新路径（当前目的地）上来了包
       async.elapse(const Duration(seconds: 2));
       expect(h.transport.route, AqtRoute.direct);
       expect(h.transport.relay, isNull);
@@ -263,6 +268,33 @@ void main() {
     });
   });
 
+  test('fresh lastRecvAgeMs without traffic from direct still reverts',
+      () async {
+    // 中继还在送在途包、1 Hz 采样也会把切换前的包算成「新鲜」：
+    // lastRecvAgeMs 一直很小，但当前目的地（直连）一个包都没来。
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, _) = await h.relay();
+    h.onRelay(relay);
+    h.probeOk = true;
+    h.recvAge = 50;
+    final relayPort = relay.localPort;
+    h.fa.run((async) {
+      h.c.start();
+      async.elapse(const Duration(seconds: 60));
+      async.elapse(const Duration(seconds: 2, milliseconds: 100));
+      expect(h.transport.route, AqtRoute.viaSsh,
+          reason: 'no datagram from direct: must not switch');
+      expect(h.setPaths, [
+        (_serverIp, _daemonPort),
+        ('127.0.0.1', relayPort),
+      ]);
+      expect(h.transport.route, AqtRoute.viaSsh);
+      expect(_closed(async, relay), isFalse);
+      expect(h.routeChanged, 0);
+    });
+  });
+
   test('probe backoff and reset on network change', () async {
     final h = _H();
     addTearDown(h.dispose);
@@ -288,6 +320,29 @@ void main() {
       expect(h.probeCalls, expected);
       async.elapse(const Duration(seconds: 1));
       expect(h.probeCalls, ++expected, reason: 'interval reset to 60 s');
+    });
+  });
+
+  test('a failed timer probe escalates even with a re-probe queued', () async {
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, exec) = await h.relay();
+    h.onRelay(relay);
+    h.probePending = true;
+    h.fa.run((async) {
+      h.c.start();
+      async.elapse(const Duration(seconds: 60));
+      expect(h.probeCalls, 1);
+      exec.end(); // 中继断了：想再探一次，但上一次还在途 → 排队
+      async.flushMicrotasks();
+      expect(h.probeCalls, 1);
+      h.probePending = false; // 两次都失败
+      async.elapse(const Duration(milliseconds: 300));
+      expect(h.probeCalls, 2);
+      async.elapse(const Duration(seconds: 119));
+      expect(h.probeCalls, 2, reason: 'the timer probe failure escalated');
+      async.elapse(const Duration(seconds: 1));
+      expect(h.probeCalls, 3);
     });
   });
 
@@ -363,7 +418,7 @@ void main() {
     h.probeOk = true;
     h.openRelay = (_) => Future.delayed(const Duration(seconds: 1), () => r2);
     h.onSetPath = (ip, _) {
-      if (ip == _serverIp) h.recvAge = 100;
+      if (ip == _serverIp) h.pathRx = 1;
     };
     h.fa.run((async) {
       h.c.start();
