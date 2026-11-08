@@ -32,15 +32,36 @@ void main() {
       events: [(const WatchdogTick(), _f(3500, 3500))],
       forbidActions: [StartPathSwitch]);
 
-  machineCase('death deferred while switch in flight',
-      from: _live,
-      events: [
-        (const WatchdogTick(), _f(6500, 6500)),
-        (const WatchdogTick(), _f(15000, 15000)),
-        (const WatchdogTick(), _f(19000, 19000)),
-        (const WatchdogTick(), _f(20500, 20500)), // 越过 death，但在预算内
-      ],
-      forbidActions: [StartResume, StartPathSwitch]);
+  test('probe timeout deferred inside the budget', () {
+    // 6500 触发切换；11000 发探测；14100 探测已超时（3100>3000），
+    // 但距切换起点仅 7600ms < 12000 预算 → 暂缓。
+    final (s, a) = runSeq([
+      (const WatchdogTick(), _f(6500, 6500)),
+      (const WatchdogTick(), _f(11000, 11000)),
+      (const WatchdogTick(), _f(14100, 14100)),
+    ], from: _live);
+    expect(s.phase, isNot(ConnPhase.recovering));
+    expect(a.whereType<StartResume>(), isEmpty);
+    expect(a.whereType<ScheduleTick>(), hasLength(1));
+    expect(s.pathSwitchSinceMs, 6500);
+  });
+
+  test('death ceiling deferred inside the budget (elevated)', () {
+    // 盲区：observeStart=30000。33500 观测沉默 3500 → 触发切换（elevated 3000）。
+    // 36500 观测沉默 6500 >= elevated deathMs 6000，距切换仅 3000ms < 预算 → 暂缓。
+    var s = const MachineState(phase: ConnPhase.live, observeStartMs: 30000);
+    List<Action> a;
+    (s, a) = step(s, const WatchdogTick(), _f(33500, 20000));
+    expect(a.whereType<StartPathSwitch>(), hasLength(1));
+    (s, a) = step(s, const WatchdogTick(), _f(36500, 23000));
+    expect(s.phase, isNot(ConnPhase.recovering));
+    expect(a.whereType<StartResume>(), isEmpty);
+    expect(a.whereType<ScheduleTick>(), hasLength(1));
+    // 超预算（33500+12000）后同样的沉默 → 判死。
+    (s, a) = step(s, const WatchdogTick(), _f(45600, 32100));
+    expect(s.phase, ConnPhase.recovering);
+    expect(a.whereType<StartResume>(), hasLength(1));
+  });
 
   test('death deferred: phase is not recovering inside the budget', () {
     final (s, _) = runSeq([
