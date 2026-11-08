@@ -95,6 +95,16 @@ class MachineState {
   /// 熔断窗口内的尝试记录。
   final List<AttemptMark> recent;
 
+  /// 路线切换（直连 UDP ↔ SSH 中继）在途的起点（墙钟）；null 表示不在途。
+  ///
+  /// 与 [inFlight] 同一设计：在途只存在于状态机一处，runner 不做判断。
+  /// 在途且未超 `kPathSwitchBudgetMs` 时，沉默类判死被暂缓。
+  final int? pathSwitchSinceMs;
+
+  /// 本个 live 周期是否已经尝试过路线切换（一周期只试一次）。
+  /// 沉默回落到 pathSwitchMs 以下（新的 live 周期）时清零。
+  final bool pathSwitchUsed;
+
   const MachineState({
     required this.phase,
     this.suspectSinceMs,
@@ -107,6 +117,8 @@ class MachineState {
     this.recoveringSinceMs,
     this.lastRebindCount = 0,
     this.recent = const [],
+    this.pathSwitchSinceMs,
+    this.pathSwitchUsed = false,
   });
 
   static const initial = MachineState(phase: ConnPhase.idle);
@@ -129,6 +141,9 @@ class MachineState {
     bool clearRecoveringSince = false,
     int? lastRebindCount,
     List<AttemptMark>? recent,
+    int? pathSwitchSinceMs,
+    bool clearPathSwitchSince = false,
+    bool? pathSwitchUsed,
   }) {
     // 置位必须带时刻。漏写的后果不是崩溃而是静默退化 —— inFlightSinceMs 停在
     // null，超龄逃生阀拿不到年龄，一个僵死请求就能永久占住互斥锁（a6.jpg 的
@@ -159,6 +174,10 @@ class MachineState {
           : (recoveringSinceMs ?? this.recoveringSinceMs),
       lastRebindCount: lastRebindCount ?? this.lastRebindCount,
       recent: recent ?? this.recent,
+      pathSwitchSinceMs: clearPathSwitchSince
+          ? null
+          : (pathSwitchSinceMs ?? this.pathSwitchSinceMs),
+      pathSwitchUsed: pathSwitchUsed ?? this.pathSwitchUsed,
     );
   }
 }
@@ -222,6 +241,12 @@ class ResumeStarted extends Event { const ResumeStarted(); }
 /// `ConnectedOk` 进 live 的连接是幂等的。
 class ResumeSettled extends Event { const ResumeSettled(); }
 
+/// 路线切换（见 [StartPathSwitch]）完成：连接已迁到另一条路线。
+class PathSwitched extends Event { const PathSwitched(); }
+
+/// 路线切换失败或放弃。本 live 周期不再重试（`pathSwitchUsed` 保持）。
+class PathSwitchFailed extends Event { const PathSwitchFailed(); }
+
 /// 只读事实。**不含任何判断** —— 判断全在 step() 里。
 class Facts {
   final int nowMs;
@@ -248,6 +273,9 @@ class Facts {
   /// 才说明通道坏了。
   final int? sinceLastWriteMs;
 
+  /// 当前是否具备切换路线的条件（前台、非 SSH 中继固定路线等，由调用方判定）。
+  final bool canSwitchPath;
+
   const Facts({
     required this.nowMs,
     required this.rawRecvAgeMs,
@@ -256,6 +284,7 @@ class Facts {
     this.networkType = 'wifi',
     this.ptySilenceMs = 0,
     this.sinceLastWriteMs,
+    this.canSwitchPath = false,
   });
 }
 
@@ -265,6 +294,8 @@ sealed class Action {
 
 class SendProbe extends Action { const SendProbe(); }
 class StartResume extends Action { const StartResume(); }
+/// 在判死之前先试另一条路线（直连 UDP ↔ SSH 中继）。
+class StartPathSwitch extends Action { const StartPathSwitch(); }
 class StartBootstrap extends Action { const StartBootstrap(); }
 class Close extends Action { const Close(); }
 // 没有 Rebind action：主动迁移端点仍走既有的 AqtTransport.migrateEndpoint()，

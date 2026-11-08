@@ -48,6 +48,10 @@ const int kMinAliveMs = 10000;
 /// 认它纯粹是让用户干等。
 const int kInFlightStaleMs = 30000;
 
+/// 路线切换的总预算。在途且未超它时，沉默类判死（death 天花板 / 探测超时）
+/// 被暂缓；超了就按原规则判死。
+const int kPathSwitchBudgetMs = 12000;
+
 /// recovering 持续超过这么久才提示用户。
 ///
 /// **这是本设计唯一需要实测标定的值**，初值 800ms。定义是"恢复耗时的 p50"——
@@ -98,13 +102,26 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
     // 进后台：不探测、不判死。observeStartMs 清空表示"进入盲区"——
     // 进程可能被冻结也可能没有，状态机不关心，它只记录"这段时间看不见"。
     LifecycleBackground() => (
-        s.copyWith(clearObserveStart: true, clearSuspectSince: true),
+        s.copyWith(
+            clearObserveStart: true,
+            clearSuspectSince: true,
+            clearPathSwitchSince: true),
         [const CancelTick()],
       ),
     // 回前台：观测重新开始。立刻看一眼而不是等 1s ——
     // 盲区越长越该早看，而这里正是盲区刚结束的时刻。
     LifecycleForeground() => (
         s.copyWith(observeStartMs: f.nowMs, clearSuspectSince: true),
+        [const ScheduleTick(0)],
+      ),
+    // 路线切换结束：成功与失败对状态机的效果相同 —— 清在途、立刻看一眼。
+    // 失败时 pathSwitchUsed 保持 true，本 live 周期不再尝试。
+    PathSwitched() => (
+        s.copyWith(clearPathSwitchSince: true),
+        [const ScheduleTick(0)],
+      ),
+    PathSwitchFailed() => (
+        s.copyWith(clearPathSwitchSince: true),
         [const ScheduleTick(0)],
       ),
     ConnectedOk() => _onConnected(s, f),
@@ -243,6 +260,27 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
   final t = thresholdsFor(urgency: urgencyFor(s, f));
   final silence = observedSilence(s, f);
 
+  // 沉默回落到切换阈值以下：新的 live 周期，允许再试一次路线切换。
+  if (silence < t.pathSwitchMs && s.pathSwitchUsed) {
+    s = s.copyWith(pathSwitchUsed: false);
+  }
+
+  // 判死之前先试另一条路线。每个 live 周期一次；在途期间见下面的暂缓。
+  if (silence >= t.pathSwitchMs &&
+      f.canSwitchPath &&
+      !s.pathSwitchUsed &&
+      s.pathSwitchSinceMs == null) {
+    return (
+      s.copyWith(pathSwitchSinceMs: f.nowMs, pathSwitchUsed: true),
+      [const StartPathSwitch(), const ScheduleTick(kTickIntervalMs)],
+    );
+  }
+
+  // 切换在途且未超预算：沉默类判死（下面的 death 与探测超时）暂缓。
+  // pty 停流不在此列 —— 那是另一种故障，上面已先行处理。
+  final switching = s.pathSwitchSinceMs != null &&
+      f.nowMs - s.pathSwitchSinceMs! < kPathSwitchBudgetMs;
+
   // 沉默还没到 suspect：新鲜。
   if (silence < t.suspectMs) {
     return (
@@ -259,6 +297,7 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
   // 天花板」那条。原先另有一个 death_ceiling_test.dart 用旧的 WatchdogState
   // 锁同一结论，已随旧实现一起删除。
   if (silence >= t.deathMs) {
+    if (switching) return (s, [const ScheduleTick(kTickIntervalMs)]);
     return _enterRecovering(s, f);
   }
 
@@ -273,6 +312,7 @@ bool isCascading(List<AttemptMark> recent, int nowMs) {
 
   // 探测在途：超时则判死，否则继续等。
   if (f.nowMs - since > t.probeTimeoutMs) {
+    if (switching) return (s, [const ScheduleTick(kTickIntervalMs)]);
     return _enterRecovering(s, f);
   }
   return (
@@ -310,6 +350,7 @@ bool isInFlightStale(MachineState s, Facts f) {
       inFlight: true,
       inFlightSinceMs: f.nowMs,
       clearSuspectSince: true,
+      clearPathSwitchSince: true,
       recoveringSinceMs: f.nowMs,
     ),
     [const CancelTick(), const StartResume()],

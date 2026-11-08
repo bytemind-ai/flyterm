@@ -28,7 +28,11 @@ class Thresholds {
   /// 越过 death 天花板」那条用例。
   final int deathMs;
 
+  /// 观测沉默达到它就先尝试切换路线（早于 suspect / death）。
+  final int pathSwitchMs;
+
   const Thresholds({
+    required this.pathSwitchMs,
     required this.suspectMs,
     required this.probeTimeoutMs,
     required this.deathMs,
@@ -37,9 +41,11 @@ class Thresholds {
 
 Thresholds thresholdsFor({required Urgency urgency}) => switch (urgency) {
       Urgency.normal => const Thresholds(
+          pathSwitchMs: 6000,
           suspectMs: 10000, probeTimeoutMs: 3000, deathMs: 20000),
       // 有盲区时更急：链路很可能在盲区里就死了，没必要再等一个稳态周期。
       Urgency.elevated => const Thresholds(
+          pathSwitchMs: 3000,
           suspectMs: 3000, probeTimeoutMs: 2000, deathMs: 6000),
     };
 
