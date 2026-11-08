@@ -6,6 +6,8 @@ _aqt_state
 _aqt_heartbeat
 _aqt_roam
 _aqt_rebind
+_aqt_set_path
+_aqt_path_rx_current
 _aqt_set_foreground
 _aqt_file_cancel
 _aqt_open_tab
@@ -24,3 +26,5 @@ _aqt_file_upload_start
 _aqt_get_path_stats
 _aqt_notify_ack
 _aqt_open_tab_v2
+_aqt_probe_direct
+_aqt_probe_result

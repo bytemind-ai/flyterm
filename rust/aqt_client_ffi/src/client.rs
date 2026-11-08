@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
+use crate::routed_socket::RoutedSocket;
 use anyhow::{anyhow, Result};
 use aqt_protocol::ALPN;
 use once_cell::sync::Lazy;
@@ -7,6 +8,7 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::crypto::CryptoProvider;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 use x509_parser::prelude::*;
@@ -91,7 +93,7 @@ impl ServerCertVerifier for SpkiPinVerifier {
 static TLS_SESSION_STORE: Lazy<Arc<dyn rustls::client::ClientSessionStore>> =
     Lazy::new(|| Arc::new(rustls::client::ClientSessionMemoryCache::new(256)));
 
-pub fn make_client_endpoint(expected_spki: Vec<u8>) -> Result<Endpoint> {
+fn client_config(expected_spki: Vec<u8>) -> Result<ClientConfig> {
     let provider = crypto_provider();
     let mut crypto = rustls::ClientConfig::builder_with_provider(Arc::clone(&provider))
         .with_protocol_versions(&[&rustls::version::TLS13])
@@ -144,10 +146,36 @@ pub fn make_client_endpoint(expected_spki: Vec<u8>) -> Result<Endpoint> {
     transport.initial_mtu(1200);
     transport.mtu_discovery_config(None); // disable PMTUD probing
     cfg.transport_config(Arc::new(transport));
+    Ok(cfg)
+}
 
+pub fn make_client_endpoint(expected_spki: Vec<u8>) -> Result<Endpoint> {
+    let cfg = client_config(expected_spki)?;
     let mut ep = Endpoint::client("0.0.0.0:0".parse()?)?;
     ep.set_default_client_config(cfg);
     Ok(ep)
+}
+
+/// Client endpoint whose UDP socket is a [`RoutedSocket`]: QUIC sees a fixed
+/// virtual peer (`routed.virtual_peer()`), while the real destination can be
+/// switched at any time via `routed.set_target` without breaking the
+/// connection. Connect to `routed.virtual_peer()`, not to `target`.
+pub fn make_routed_endpoint(
+    expected_spki: Vec<u8>,
+    target: SocketAddr,
+) -> Result<(Endpoint, Arc<RoutedSocket>)> {
+    let cfg = client_config(expected_spki)?;
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
+    let routed = RoutedSocket::new(socket, target, target.port())?;
+    let runtime = quinn::default_runtime().ok_or_else(|| anyhow!("no async runtime found"))?;
+    let mut ep = Endpoint::new_with_abstract_socket(
+        quinn::EndpointConfig::default(),
+        None,
+        routed.clone(),
+        runtime,
+    )?;
+    ep.set_default_client_config(cfg);
+    Ok((ep, routed))
 }
 
 pub async fn connect(

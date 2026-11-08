@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- QUIC now switches between direct UDP and the SSH channel inside the live
+  connection, in both directions: when UDP is blocked mid-session, when it
+  comes back, and on a network change while on the SSH channel. The terminal
+  session stays up with no reconnect and no RESUME, at most a few seconds of
+  stall. A session on direct UDP still migrates its socket on a network
+  change and may RESUME as before. The first
+  connection tries both routes at once instead of waiting 4 s for UDP to
+  fail. Switching only happens in the foreground, and never when **Always use
+  the SSH channel** is on.
+
+### Removed
+- The "fell back to the SSH channel" notice. The `QUIC·SSH` mark on the status
+  dot and server list stays.
+
 ## [0.8.0] - 2026-11-08
 
 ### Added

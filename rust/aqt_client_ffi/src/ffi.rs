@@ -17,9 +17,9 @@ use aqt_protocol::{
 // read_frame_from::<Notify>() infers P from context) — importing it by name
 // here would be unused, same reasoning as connection.rs's NotifyAck-only import.
 
-use crate::client::{connect, make_client_endpoint};
+use crate::client::{connect, make_routed_endpoint};
 use crate::error::AqtError;
-use crate::handle::{AqtEvent, AqtEventKind, ConnState, SessionHandle, TabHandle};
+use crate::handle::{AqtEvent, AqtEventKind, ConnState, RoutedPath, SessionHandle, TabHandle};
 use crate::runtime::RUNTIME;
 
 /// Connection parameters struct passed from Dart.
@@ -462,7 +462,7 @@ pub unsafe extern "C" fn aqt_connect(
             rt.spawn(async move {
                 // This Arc owns the incremented refcount; drops at end of scope.
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
-                match make_client_endpoint(spki) {
+                match make_routed_endpoint(spki, addr) {
                     Err(e) => {
                         tracing::warn!("make_endpoint: {e:#}");
                         let _ = h.event_tx.send(AqtEvent {
@@ -474,7 +474,7 @@ pub unsafe extern "C" fn aqt_connect(
                         *h.conn_state.lock().await = ConnState::Failed;
                         // h drops here, decrementing refcount back to 1
                     }
-                    Ok(ep) => match connect(&ep, addr, &sni).await {
+                    Ok((ep, routed)) => match connect(&ep, routed.virtual_peer(), &sni).await {
                         Err(e) => {
                             tracing::warn!("connect: {e:#}");
                             *h.conn_state.lock().await = ConnState::Failed;
@@ -489,6 +489,10 @@ pub unsafe extern "C" fn aqt_connect(
                         Ok(conn) => {
                             // Store endpoint + connection. Endpoint must
                             // outlive any aqt_rebind() call (migration).
+                            *h.path.lock().unwrap() = Some(RoutedPath {
+                                endpoint: ep.clone(),
+                                socket: routed,
+                            });
                             *h.endpoint.write().await = Some(ep.clone());
                             *h.conn.write().await = Some(conn.clone());
                             *h.conn_state.lock().await = ConnState::Connected;
@@ -1292,26 +1296,38 @@ pub unsafe extern "C" fn aqt_rebind(handle: *mut c_void) -> c_int {
         RUNTIME.dispatch(move |rt| {
             rt.spawn(async move {
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
-                let ep_opt = h.endpoint.read().await.clone();
-                let Some(ep) = ep_opt else {
-                    tracing::warn!("aqt_rebind: no endpoint stored — skipping");
-                    return;
-                };
-                // Bind a fresh UDP socket on the OS's current default route.
-                // "0.0.0.0:0" lets the kernel pick interface + ephemeral port.
-                let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
-                    Ok(s) => s,
-                    Err(e) => {
-                        tracing::warn!("aqt_rebind: socket bind failed: {e}");
+                // Endpoint and socket come from one guard (RoutedPath), held
+                // across copy-route -> rebind -> store with no .await. A
+                // concurrent aqt_set_path (which sets the target under the
+                // same guard) therefore lands entirely before the route copy
+                // or entirely on the fresh socket, and a resume can never
+                // pair an old endpoint with a new socket.
+                let ok = {
+                    let mut guard = h.path.lock().unwrap();
+                    let Some(path) = guard.as_mut() else {
+                        tracing::warn!("aqt_rebind: no endpoint stored — skipping");
                         return;
+                    };
+                    // Fresh socket on the OS's current default route; the
+                    // destination (route) is inherited unchanged.
+                    match path.socket.with_fresh_socket() {
+                        Err(e) => {
+                            tracing::warn!("aqt_rebind: fresh socket failed: {e}");
+                            false
+                        }
+                        Ok(fresh) => match path.endpoint.rebind_abstract(fresh.clone()) {
+                            Err(e) => {
+                                tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
+                                false
+                            }
+                            Ok(()) => {
+                                path.socket = fresh;
+                                true
+                            }
+                        },
                     }
                 };
-                if let Err(e) = socket.set_nonblocking(true) {
-                    tracing::warn!("aqt_rebind: set_nonblocking failed: {e}");
-                    return;
-                }
-                if let Err(e) = ep.rebind(socket) {
-                    tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
+                if !ok {
                     return;
                 }
                 tracing::info!("aqt_rebind: endpoint rebound to fresh socket");
@@ -1326,6 +1342,166 @@ pub unsafe extern "C" fn aqt_rebind(handle: *mut c_void) -> c_int {
         AqtError::Ok.as_i32()
     }));
     result.unwrap_or(AqtError::Panic.as_i32())
+}
+
+/// Switch the real destination of the connection (direct <-> relay) without
+/// touching QUIC state: the same connection/session keeps running, only the
+/// UDP target behind the virtual peer changes.
+///
+/// Returns 0 on success, `InvalidArg` for null/non-IP arguments,
+/// `NotConnected` if no routed socket exists yet.
+///
+/// # Safety
+/// `handle` must be a live handle; `ip` a valid NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn aqt_set_path(handle: *mut c_void, ip: *const c_char, port: u16) -> c_int {
+    if handle.is_null() || ip.is_null() {
+        return AqtError::InvalidArg.as_i32();
+    }
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| -> i32 {
+        let ip_str = match CStr::from_ptr(ip).to_str() {
+            Ok(s) => s,
+            Err(_) => return AqtError::InvalidArg.as_i32(),
+        };
+        let ip_addr: std::net::IpAddr = match ip_str.parse() {
+            Ok(a) => a,
+            Err(_) => return AqtError::InvalidArg.as_i32(),
+        };
+        let h = &*(handle as *const SessionHandle);
+        {
+            // set_target under the path guard so a concurrent rebind cannot
+            // swap sockets in between and strand the new target.
+            let guard = h.path.lock().unwrap();
+            let Some(path) = guard.as_ref() else {
+                return AqtError::NotConnected.as_i32();
+            };
+            path.socket.set_target(SocketAddr::new(ip_addr, port));
+        }
+        // Wake the new path (same as aqt_rebind): a datagram makes the peer
+        // observe the new route promptly.
+        let handle_ptr = handle as usize;
+        Arc::increment_strong_count(handle as *const SessionHandle);
+        RUNTIME.dispatch(move |rt| {
+            rt.spawn(async move {
+                let h = Arc::from_raw(handle_ptr as *const SessionHandle);
+                let conn_opt = h.conn.read().await.clone();
+                if let Some(conn) = conn_opt {
+                    let _ = conn.send_datagram(bytes::Bytes::from_static(b"\x00"));
+                }
+            });
+        });
+        AqtError::Ok.as_i32()
+    }));
+    result.unwrap_or(AqtError::Panic.as_i32())
+}
+
+/// Datagrams received from the current real destination since the last
+/// [`aqt_set_path`] (packets still arriving from the previous route are not
+/// counted). The Dart side confirms a switch back to direct only when this
+/// goes above 0. Negative `NotConnected` when there is no routed socket.
+///
+/// # Safety
+/// `handle` must be a live handle (or null — handled).
+#[no_mangle]
+pub unsafe extern "C" fn aqt_path_rx_current(handle: *mut c_void) -> i64 {
+    if handle.is_null() {
+        return AqtError::NotConnected.as_i32() as i64;
+    }
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| -> i64 {
+        let h = &*(handle as *const SessionHandle);
+        let guard = h.path.lock().unwrap();
+        match guard.as_ref() {
+            Some(path) => path.socket.rx_from_current().min(i64::MAX as u64) as i64,
+            None => AqtError::NotConnected.as_i32() as i64,
+        }
+    }));
+    result.unwrap_or(AqtError::Panic.as_i32() as i64)
+}
+
+/// Start an asynchronous reachability probe of the direct path: a throwaway
+/// plain-socket endpoint completes a QUIC+TLS handshake (SPKI-pinned) with
+/// `host:port` and closes immediately — no HELLO is sent, so no session is
+/// touched. Returns 0 once started (poll [`aqt_probe_result`]), negative on
+/// bad arguments.
+///
+/// # Safety
+/// `handle` must be a live handle; `host` a valid NUL-terminated string;
+/// `spki_ptr` valid for `spki_len` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn aqt_probe_direct(
+    handle: *mut c_void,
+    host: *const c_char,
+    port: u16,
+    spki_ptr: *const u8,
+    spki_len: usize,
+    timeout_ms: u32,
+) -> c_int {
+    if handle.is_null() || host.is_null() || spki_ptr.is_null() {
+        return AqtError::InvalidArg.as_i32();
+    }
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| -> i32 {
+        let ip: std::net::IpAddr = match CStr::from_ptr(host)
+            .to_str()
+            .ok()
+            .and_then(|s| s.parse().ok())
+        {
+            Some(a) => a,
+            None => return AqtError::InvalidArg.as_i32(),
+        };
+        let spki = std::slice::from_raw_parts(spki_ptr, spki_len).to_vec();
+        let addr = SocketAddr::new(ip, port);
+        let h = &*(handle as *const SessionHandle);
+        h.probe_result
+            .store(-1, std::sync::atomic::Ordering::SeqCst);
+        let handle_ptr = handle as usize;
+        Arc::increment_strong_count(handle as *const SessionHandle);
+        RUNTIME.dispatch(move |rt| {
+            rt.spawn(async move {
+                let h = Arc::from_raw(handle_ptr as *const SessionHandle);
+                let reachable = probe_handshake(spki, addr, timeout_ms).await;
+                h.probe_result
+                    .store(reachable as i32, std::sync::atomic::Ordering::SeqCst);
+            });
+        });
+        AqtError::Ok.as_i32()
+    }));
+    result.unwrap_or(AqtError::Panic.as_i32())
+}
+
+async fn probe_handshake(spki: Vec<u8>, addr: SocketAddr, timeout_ms: u32) -> bool {
+    let Ok(ep) = crate::client::make_client_endpoint(spki) else {
+        return false;
+    };
+    let hs = tokio::time::timeout(
+        std::time::Duration::from_millis(timeout_ms as u64),
+        connect(&ep, addr, "aqt"),
+    )
+    .await;
+    match hs {
+        Ok(Ok(conn)) => {
+            conn.close(0u32.into(), b"probe");
+            // Let the CONNECTION_CLOSE leave before the endpoint is dropped.
+            let _ =
+                tokio::time::timeout(std::time::Duration::from_millis(200), ep.wait_idle()).await;
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Result of the latest [`aqt_probe_direct`]: -1 in progress, 0 unreachable
+/// or timed out, 1 reachable. Negative (< -1) for a null handle.
+///
+/// # Safety
+/// `handle` must be a live handle.
+#[no_mangle]
+pub unsafe extern "C" fn aqt_probe_result(handle: *mut c_void) -> c_int {
+    if handle.is_null() {
+        return AqtError::NotConnected.as_i32();
+    }
+    (*(handle as *const SessionHandle))
+        .probe_result
+        .load(std::sync::atomic::Ordering::SeqCst)
 }
 
 /// Update foreground/background state.
@@ -1786,14 +1962,19 @@ async fn do_quic_resume(
     last_in_off: u64,
     ring_tail_hash: u64,
 ) -> anyhow::Result<()> {
-    let ep = make_client_endpoint(spki)?;
+    let (ep, routed) = crate::client::make_routed_endpoint(spki, addr)?;
     // 0-RTT RESUME: send the RESUME frame in the initial packet alongside
     // TLS ClientHello. Saves 1 RTT vs awaiting full handshake first.
     // RESUME is idempotent (session_token validated server-side, replay benign).
-    let (conn, zero_rtt_accepted) = crate::client::connect_0rtt(&ep, addr, "aqt").await?;
+    let (conn, zero_rtt_accepted) =
+        crate::client::connect_0rtt(&ep, routed.virtual_peer(), "aqt").await?;
     tracing::debug!("aqt_resume: 0-RTT accepted={}", zero_rtt_accepted);
 
     // Store endpoint + connection. Endpoint must outlive aqt_rebind().
+    *h.path.lock().unwrap() = Some(RoutedPath {
+        endpoint: ep.clone(),
+        socket: routed,
+    });
     *h.endpoint.write().await = Some(ep.clone());
     *h.conn.write().await = Some(conn.clone());
     *h.conn_state.lock().await = ConnState::Connected;

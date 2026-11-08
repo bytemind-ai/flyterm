@@ -18,6 +18,7 @@ class AqtConnRunner {
   final void Function() onProbe;
   final void Function() onResume;
   final void Function() onBootstrap;
+  final void Function() onPathSwitch;
   final void Function() onClose;
   final void Function(String code) onBanner;
   final void Function() onClearBanner;
@@ -32,6 +33,7 @@ class AqtConnRunner {
     required this.onProbe,
     required this.onResume,
     required this.onBootstrap,
+    required this.onPathSwitch,
     required this.onClose,
     required this.onBanner,
     required this.onClearBanner,
@@ -54,6 +56,8 @@ class AqtConnRunner {
           onResume();
         case StartBootstrap():
           onBootstrap();
+        case StartPathSwitch():
+          onPathSwitch();
         case Close():
           onClose();
         case ShowBanner(:final code):

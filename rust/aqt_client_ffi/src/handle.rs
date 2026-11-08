@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, RwLock};
 
@@ -67,6 +67,11 @@ pub struct SessionHandle {
     /// change (Wi-Fi ↔ cellular). Dropping this would tear down the I/O
     /// driver and kill the connection.
     pub endpoint: Arc<RwLock<Option<quinn::Endpoint>>>,
+    /// Endpoint + the routed socket currently under it, always written and
+    /// read together (rebind / set_path must never see a mismatched pair).
+    /// Lock order: path mutex -> RoutedSocket route lock -> quinn endpoint lock;
+    /// never `.await` while holding it.
+    pub path: std::sync::Mutex<Option<RoutedPath>>,
     /// Active QUIC connection (set after QUIC handshake completes)
     pub conn: Arc<RwLock<Option<quinn::Connection>>>,
     /// Write half of the control stream (set after HELLO handshake)
@@ -142,6 +147,9 @@ pub struct SessionHandle {
     /// so the Dart foreground watchdog can detect silent path death within
     /// ~7s instead of the 15-30s quinn keep_alive cycle.
     pub last_recv_at_ms: AtomicU64,
+    /// Outcome of the latest `aqt_probe_direct`: -1 in progress (or never
+    /// started), 0 unreachable/timed out, 1 reachable.
+    pub probe_result: AtomicI32,
 }
 
 impl SessionHandle {
@@ -154,6 +162,7 @@ impl SessionHandle {
                 event_tx: tx,
                 conn_state: Arc::new(Mutex::new(ConnState::Connecting)),
                 endpoint: Arc::new(RwLock::new(None)),
+                path: std::sync::Mutex::new(None),
                 conn: Arc::new(RwLock::new(None)),
                 ctrl_tx: Arc::new(Mutex::new(None)),
                 ctrl_rx: Arc::new(Mutex::new(None)),
@@ -169,6 +178,7 @@ impl SessionHandle {
                 rebinding_count: AtomicU32::new(0),
                 last_observed_addr: tokio::sync::Mutex::new(None),
                 last_recv_at_ms: AtomicU64::new(0),
+                probe_result: AtomicI32::new(-1),
             }),
             tx2,
         )
@@ -203,4 +213,11 @@ mod tests {
         // Dart side (aqt_ffi.dart AqtEventKind) reads this u8 directly.
         assert_eq!(AqtEventKind::Notify as u8, 8);
     }
+}
+
+/// A client endpoint paired with the [`RoutedSocket`] currently bound to it.
+#[derive(Clone)]
+pub struct RoutedPath {
+    pub endpoint: quinn::Endpoint,
+    pub socket: Arc<crate::routed_socket::RoutedSocket>,
 }

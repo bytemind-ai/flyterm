@@ -3523,11 +3523,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aqtPortRestartKeep => 'Keep current port';
 
   @override
-  String aqtFellBackToSsh(String ports) {
-    return 'UDP is unavailable, so FlyTerm connected through the SSH channel. Allow UDP $ports for lower latency.';
-  }
-
-  @override
   String get aqtViaSshLabel => 'Always use the SSH channel';
 
   @override

@@ -36,6 +36,7 @@ import 'aqt/aqt_ffi.dart'
     show AqtDisposition, AqtNewSession, AqtRestored, AqtTabGone, PathStats;
 import 'aqt/aqt_session_state.dart'
     show AqtSessionState, AqtSessionStateRepository, sessionStateFor;
+import 'aqt/aqt_path_controller.dart';
 import 'aqt/aqt_route.dart';
 import 'aqt/aqt_ssh_relay.dart';
 import 'aqt/notify_seen_store.dart' show NotifySeenStore;
@@ -648,6 +649,9 @@ class ReconnectService with WidgetsBindingObserver {
   /// 这是 runner 的**唯一**创建点 —— 全仓库 6 个 transport 赋值点都经这里，
   /// 包括首连（terminal_screen.dart:921）与 prewarm 接管。
   void _onTabTransportChanged(SessionTab tab, RemoteTransport? next) {
+    // 控制器绑死一个 transport：换了（包括 RESUME 换出来的新 transport）就
+    // 销毁旧的、给新的另建一个。
+    _disposePathController(tab.id);
     if (next is! AqtTransport) {
       _teardownRunner(tab.id);
       return;
@@ -669,6 +673,25 @@ class ReconnectService with WidgetsBindingObserver {
       onResume: () => unawaited(_proactiveResumeAqtTab(tab,
           source: ResumeTrigger.watchdog, fromMachine: true)),
       onBootstrap: () => unawaited(_reconnectWithRetry(tab)),
+      // 放进 microtask：控制器在 disposed / 后台时会**同步**喂回
+      // PathSwitchFailed，而这里正处在 runner.feed 的动作循环里 —— 重入会把
+      // 两次 step 的动作交错执行。
+      onPathSwitch: () => scheduleMicrotask(() {
+        // transport 已被换掉：旧 runner 随之作废，不需要回音。
+        if (!identical(tab.transport, next)) return;
+        final c = _pathControllers[tab.id];
+        if (c != null) {
+          unawaited(c.onStartPathSwitch());
+        } else {
+          // canSwitchPath 要求控制器存在，正常走不到这里；万一走到，也得给状态机
+          // 一个回音，否则它一直以为切换在途。
+          final t = tab.transport;
+          if (t is AqtTransport) {
+            _runners[tab.id]
+                ?.feed(const conn.PathSwitchFailed(), _factsFor(tab, t));
+          }
+        }
+      }),
       onClose: next.close,
       onBanner: (code) => _setReconnectMessage(
         tab,
@@ -689,11 +712,57 @@ class ReconnectService with WidgetsBindingObserver {
       },
     );
     next.onWatchdogTick = () => _feedTick(tab);
+    final ctl = AqtPathController(
+      transport: next,
+      openRelay: (p) => openAqtRelay(tab, p),
+      resolveDirect: () => _resolveDirect(tab, next),
+      // 只认自己那个 transport：已被换掉的话，迟到的事件不属于新 runner。
+      feed: (e) {
+        if (!identical(tab.transport, next)) return;
+        _runners[tab.id]?.feed(e, _factsFor(tab, next));
+      },
+      // 路线变了 → aqt_session_state.via_ssh 跟着变，冷启动 RESUME 才会走对路。
+      onRouteChanged: () {
+        if (identical(tab.transport, next)) unawaited(_persistAqtSession(tab));
+      },
+      isForeground: () => _isForegroundNow,
+      // 「总是走 SSH 通道」的服务器只走中继，绝不探测切回直连。
+      directAllowed: () => !tab.server.aqtViaSsh,
+    );
+    _pathControllers[tab.id] = ctl;
+    ctl.start();
     // 刻意不在这里喂 ConnectedOk —— 「连上了」的语义应当是「已接好线、能收
     // 数据」，由 _installAqtTransport 在 startStreaming 之后喂。
   }
 
+  /// tabId → 该 tab 当前 AQT transport 的路线控制器（直连 ↔ SSH 中继，同一条
+  /// QUIC 连接内换路）。与 transport 同生共死，见 [_onTabTransportChanged]。
+  final _pathControllers = <String, AqtPathController>{};
+
+  void _disposePathController(String tabId) {
+    _pathControllers.remove(tabId)?.dispose();
+  }
+
+  /// 直连目的地址：服务器域名解析出的第一个 IPv4，端口是 daemon 端口。
+  /// 每次调用都重新解析（控制器自己缓存，换网时清掉）。
+  Future<({String ip, int port})?> _resolveDirect(
+      SessionTab tab, AqtTransport t) async {
+    final port = t.lastPort;
+    if (port == null) return null;
+    try {
+      final addrs = await InternetAddress.lookup(tab.server.host,
+          type: InternetAddressType.IPv4);
+      if (addrs.isEmpty) return null;
+      return (ip: addrs.first.address, port: port);
+    } catch (e) {
+      // 离线 / DNS 未就绪：按控制器的约定返回 null（「解析不了」），下次再试。
+      debugPrint('[AqtPath] resolve ${tab.server.host} failed: $e');
+      return null;
+    }
+  }
+
   void _teardownRunner(String tabId) {
+    _disposePathController(tabId);
     _machineTicks[tabId]?.cancel();
     _machineTicks.remove(tabId);
     _runners.remove(tabId);
@@ -705,6 +774,10 @@ class ReconnectService with WidgetsBindingObserver {
         rebindCount: t.lastPathStats.rebindingCount,
         isForeground: _isForegroundNow,
         networkType: _lastConnectivityType ?? 'wifi',
+        // 只在前台、非强制中继、且这条 transport 有控制器时才允许换路。
+        canSwitchPath: _isForegroundNow &&
+            !tab.server.aqtViaSsh &&
+            _pathControllers[tab.id] != null,
         // 与 rawRecvAgeMs 并列的第二个活性维度：前者数入向 UDP 字节（ACK /
         // keepalive / 心跳 datagram 都算），后者只在真正收到 PTY 数据时归零。
         // stream 停摆而连接层照常喘气时，只有后者看得见。
@@ -1252,6 +1325,9 @@ class ReconnectService with WidgetsBindingObserver {
     SessionTab.onTransportChanged = null;
     for (final id in _machineTicks.keys.toList()) {
       _teardownRunner(id);
+    }
+    for (final id in _pathControllers.keys.toList()) {
+      _disposePathController(id);
     }
     _sub?.cancel();
     _sub = null;
@@ -1988,8 +2064,15 @@ class ReconnectService with WidgetsBindingObserver {
       for (final tab in _sessionManager.tabs) {
         final t = tab.transport;
         if (t is AqtTransport) {
-          baselineMigrationCounts[t] = t.lastPathStats.migrationCount;
+          // 走中继且有控制器：同一连接内换路（探测直连 + 重建中继）由控制器
+          // 负责，剩下的沉默交给状态机；不记审计基线（审计据此跳过它）。
+          if (!_skipOnNetworkChange(tab)) {
+            baselineMigrationCounts[t] = t.lastPathStats.migrationCount;
+          }
           t.migrateEndpoint();
+          // 走直连时控制器什么都不做（迁移就是上面这行）；走中继时立即探测
+          // 直连并重建中继。
+          _pathControllers[tab.id]?.onNetworkChanged();
         }
       }
       if (kAggressiveMigration) {
@@ -1998,7 +2081,7 @@ class ReconnectService with WidgetsBindingObserver {
         // happened; if not, force RESUME via markPathDied.
         Timer(kPostMigrationAuditDelay,
             () => _postMigrationAudit(baselineMigrationCounts));
-        _proactiveResumeAqtTabs(probeFirst: false);
+        _proactiveResumeAqtTabs(probeFirst: false, skipRelayed: true);
       } else {
         _proactiveResumeAqtTabs(probeFirst: true);
       }
@@ -2023,7 +2106,8 @@ class ReconnectService with WidgetsBindingObserver {
       // bootstrap and connect directly to the daemon using stored session info.
       // If RESUME succeeds (~200-500 ms) the transport is atomically swapped —
       // user is unaware of the switch. If it fails, normal reconnect handles it.
-      _proactiveResumeAqtTabs();
+      // 走中继的 tab 不 RESUME：控制器在同一连接里换路。
+      _proactiveResumeAqtTabs(skipRelayed: true);
       // Post-type-change audits: be conservative but faster than the previous
       // roam-timeout path. At 5s we only probe; at 8s we enter grace (not close)
       // so a late authenticated packet can still cancel recovery; at 12s we
@@ -2180,7 +2264,8 @@ class ReconnectService with WidgetsBindingObserver {
         // typically because RESUME completed during the 800ms window and
         // swapped tab.transport. The new transport is the recovery; auditing
         // it would double-fire onDisconnected. Skip.
-        _logResume('[${_shortTabId(tab.id)}] migration audit skip — transport swapped');
+        // 也可能是布防时走中继、被 [_skipOnNetworkChange] 排除在外的 tab。
+        _logResume('[${_shortTabId(tab.id)}] migration audit skip — not armed (swapped or relayed)');
         continue;
       }
       final current = t.lastPathStats.migrationCount;
@@ -2197,11 +2282,18 @@ class ReconnectService with WidgetsBindingObserver {
 
   /// Runs immediately (no debounce) so the new connection is established
   /// before the old one dies — enabling seamless handover (~200-500 ms).
-  void _proactiveResumeAqtTabs({bool probeFirst = false}) {
+  ///
+  /// [skipRelayed]：换网触发时为 true，跳过 [_skipOnNetworkChange] 的 tab。
+  void _proactiveResumeAqtTabs(
+      {bool probeFirst = false, bool skipRelayed = false}) {
     for (final tab in _sessionManager.tabs) {
       final tid = _shortTabId(tab.id);
       if (tab.transport?.kind != TransportKind.aqt) {
         _logResume('[$tid] skip:non-aqt');
+        continue;
+      }
+      if (skipRelayed && _skipOnNetworkChange(tab)) {
+        _logResume('[$tid] skip:relayed (path controller re-routes)');
         continue;
       }
       if (_reconnecting.contains(tab.id) || _retrying.contains(tab.id)) {
@@ -2214,6 +2306,27 @@ class ReconnectService with WidgetsBindingObserver {
       }
       _proactiveResumeAqtTab(tab, probeFirst: probeFirst).ignore();
     }
+  }
+
+  /// 换网时这个 tab 是否不做立即 RESUME、不布迁移审计。
+  ///
+  /// 走 SSH 中继且有路线控制器：中继所在的 SSH 会断，但控制器会立即探测直连
+  /// 并重建中继、在同一条 QUIC 连接里换路（设计 §4.4「换网」）；剩下的沉默由
+  /// 状态机按规则处理。此时 RESUME 只会把一条还能救的连接换掉。审计同理：
+  /// 中继路线上 migration_count 不一定涨，审计会误判 markPathDied。
+  ///
+  /// 走直连（或没有控制器）的 tab 照旧：migrateEndpoint + RESUME + 审计。
+  static bool shouldSkipNetworkChangeResume({
+    required AqtRoute route,
+    required bool hasController,
+  }) =>
+      route == AqtRoute.viaSsh && hasController;
+
+  bool _skipOnNetworkChange(SessionTab tab) {
+    final t = tab.transport;
+    return t is AqtTransport &&
+        shouldSkipNetworkChangeResume(
+            route: t.route, hasController: _pathControllers[tab.id] != null);
   }
 
   /// Pure policy for the cheap-RESUME retry window. Extracted so the schedule
@@ -2976,6 +3089,7 @@ class ReconnectService with WidgetsBindingObserver {
     required String networkType,
     int ptySilenceMs = 0,
     int? sinceLastWriteMs,
+    bool canSwitchPath = false,
   }) =>
       conn.Facts(
         nowMs: nowMs,
@@ -2985,6 +3099,7 @@ class ReconnectService with WidgetsBindingObserver {
         networkType: networkType,
         ptySilenceMs: ptySilenceMs,
         sinceLastWriteMs: sinceLastWriteMs,
+        canSwitchPath: canSwitchPath,
       );
 
   /// 服务端处置 → 终端动作。**唯一**一份实现。

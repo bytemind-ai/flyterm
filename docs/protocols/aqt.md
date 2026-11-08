@@ -355,18 +355,82 @@ big-endian length + packet`. The relay is stateless and exits when the
 channel closes, so TLS/SPKI pinning, streams, RESUME and Notify all run end
 to end and the daemon simply sees a 127.0.0.1 peer.
 
-- **Route.** `AqtRoute.direct | viaSsh`, decided on a server's first
-  connection in an app run (direct for 4 s, then the relay; or the relay
-  straight away with `Server.aqtViaSsh`). Cached per server for the run
-  (`AqtRouteCache`) and persisted per session (`aqt_session_state.via_ssh`),
-  so reconnects and cold-start RESUME take the same route without probing.
+- **Route.** `AqtRoute.direct | viaSsh`. On a server's first connection both
+  routes race: direct starts first, the relay joins after 300 ms (at once if
+  the cache says this server last used the relay), first success wins and the
+  loser is closed; `Server.aqtViaSsh` goes straight to the relay. The route is
+  cached per server for the run (`AqtRouteCache`), persisted per session
+  (`aqt_session_state.via_ssh`), and can change *during* a session (below).
 - **Ports.** The persisted port is always the daemon's; the relay's local port
   only lives as long as its transport (`AqtTransport.attachRelay`).
 - **RESUME** of a relayed session first opens a relay (8 s, outside the RESUME
   budget) over the tab's auxiliary SSH connection, or over the reconnect
-  path's own SSH client; failure falls back to a full reconnect.
-- **Cost.** QUIC over TCP has head-of-line blocking on lossy links; a network
-  change means a new SSH connection + RESUME instead of QUIC migration.
+  path's own SSH client; failure falls back to a full reconnect. Where the
+  reconnect path supplies a relay opener (proactive RESUME, including its
+  fallback to the persisted session info, and the pre-SSH RESUME in a
+  reconnect), a direct RESUME
+  that fails with a network-class error (`networkTimeout`, `unknownError`) is
+  retried once over the relay with its own budget; `sessionNotFound` and
+  `handshakeFailed` do not change route. The full-reconnect race path has no
+  such fallback.
+- **Cost.** QUIC over TCP has head-of-line blocking on lossy links.
+
+#### Seamless path switching
+
+The client never gives QUIC a real peer address. `RoutedSocket`
+(`rust/aqt_client_ffi/src/routed_socket.rs`, a quinn `AsyncUdpSocket`) wraps
+the real UDP socket (still bound `0.0.0.0:0`) and presents the fixed virtual
+peer `127.0.0.2:<port of the initial target>` (the daemon port for a direct
+first connect, the relay's local port for a relay-first one; internal only,
+and kept across rebinds): outgoing packets to the virtual peer are rewritten to the current target, and incoming packets from the current or
+previous target are rewritten to come from the virtual peer (others are
+dropped; keeping `previous` saves in-flight packets at the switch). SNI and
+what the server sees are unchanged.
+
+Switching route is therefore just changing the target: the server sees a
+standard QUIC connection migration (RFC 9000 section 9), so the session
+survives with no RESUME. Only the daemon's address is ever persisted; the
+virtual peer is internal (the debug overlay shows the route as `QUIC` /
+`QUIC·SSH`; it has no peer address).
+
+FFI (`lib/ssh/aqt/aqt_ffi.dart`, exported in `ios/Runner/aqt_exports.exports`):
+
+- `aqt_set_path(handle, ip, port)` sets the target and sends a 1-byte
+  datagram to wake the new path. 0 on success, negative on error.
+- `aqt_probe_direct(handle, host, port, spki, spki_len, timeout_ms)` starts a
+  throwaway SPKI-verified QUIC handshake on a temporary endpoint and closes it
+  without HELLO. `host` must be an IP literal (a hostname is InvalidArg). It
+  returns 0 as soon as the probe has started, negative on bad arguments.
+- `aqt_probe_result(handle)` polls the outcome: -1 in progress, 1 reachable,
+  0 unreachable, timed out or handshake failed (including a bad SPKI);
+  negative only for a null handle (NotConnected). The probe never touches the
+  live session.
+
+Driven by `AqtPathController` (`lib/ssh/aqt/aqt_path_controller.dart`, one per
+session) and `conn_machine`:
+
+- **Direct to relay.** Inbound silence beyond 6 s (3 s when a blind gap is
+  known) emits `StartPathSwitch`. The controller opens a relay (8 s budget); if
+  packets resume meanwhile it aborts. On success it calls `aqt_set_path` to
+  `127.0.0.1:<relay port>`. While a switch is in flight, death detection is
+  deferred up to `kPathSwitchBudgetMs` = 12 s, after which the normal
+  recovering flow takes over.
+- **Relay to direct.** Foreground only, one probe at a time: immediately on
+  network change, otherwise every 60 s, backing off to 120 s then 300 s on
+  failure (reset on network change or successful switch). After a successful
+  probe the target is set to the daemon; if no packet arrives within 2 s the
+  controller switches back to the relay and counts a failed probe.
+- **Network change.** On direct, `aqt_rebind` as before, and the session may
+  still be proactively RESUMEd (with the post-migration audit). On the relay
+  (with a path controller), the session re-routes inside the same connection
+  instead: no proactive RESUME and no migration audit; the SSH carrier dies, so
+  a direct probe and a relay rebuild race and the first success wins, and any
+  remaining silence is left to the state machine. A relay that drops by itself
+  is rebuilt (plus a probe).
+- `StartPathSwitch` (silence-triggered) fires at most once per live period
+  in the state machine to avoid flapping; relay to direct follows the probe
+  schedule above. No switching in the background or when `aqtViaSsh` is set.
+
 - **Known limitation.** The daemon sees every relayed peer as 127.0.0.1, so
   the (off-by-default) history feature's per-IP session key lumps relayed
   devices together.

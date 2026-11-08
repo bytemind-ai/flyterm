@@ -111,6 +111,20 @@ final _ResizeTabDart _aqtResizeTab =
 late final _GetTokenDart? _aqtGetSessionToken;
 late final _ResumeDart? _aqtResume;
 
+// 路径切换 / 直连探测（旧 .so 可能没有这三个符号；缺失时调用方按失败处理）
+typedef _SetPathNative = Int32 Function(Pointer<Void>, Pointer<Utf8>, Uint16);
+typedef _SetPathDart = int Function(Pointer<Void>, Pointer<Utf8>, int);
+typedef _ProbeDirectNative = Int32 Function(
+    Pointer<Void>, Pointer<Utf8>, Uint16, Pointer<Uint8>, IntPtr, Uint32);
+typedef _ProbeDirectDart = int Function(
+    Pointer<Void>, Pointer<Utf8>, int, Pointer<Uint8>, int, int);
+late final _SetPathDart? _aqtSetPath;
+late final _ProbeDirectDart? _aqtProbeDirect;
+late final _VoidDart? _aqtProbeResult;
+typedef _PathRxNative = Int64 Function(Pointer<Void>);
+typedef _PathRxDart = int Function(Pointer<Void>);
+late final _PathRxDart? _aqtPathRxCurrent;
+
 typedef _GetU64Native = Uint64 Function(Pointer<Void>);
 typedef _GetU64Dart = int Function(Pointer<Void>);
 late final _GetU64Dart? _aqtGetLastRecvAgeMs;
@@ -259,6 +273,34 @@ void _initOptionalFfi() {
         .asFunction();
   } catch (_) {
     _aqtGetPathStats = null;
+  }
+  try {
+    _aqtSetPath = _lib
+        .lookup<NativeFunction<_SetPathNative>>('aqt_set_path')
+        .asFunction();
+  } catch (_) {
+    _aqtSetPath = null;
+  }
+  try {
+    _aqtProbeDirect = _lib
+        .lookup<NativeFunction<_ProbeDirectNative>>('aqt_probe_direct')
+        .asFunction();
+  } catch (_) {
+    _aqtProbeDirect = null;
+  }
+  try {
+    _aqtProbeResult = _lib
+        .lookup<NativeFunction<_VoidSig>>('aqt_probe_result')
+        .asFunction();
+  } catch (_) {
+    _aqtProbeResult = null;
+  }
+  try {
+    _aqtPathRxCurrent = _lib
+        .lookup<NativeFunction<_PathRxNative>>('aqt_path_rx_current')
+        .asFunction();
+  } catch (_) {
+    _aqtPathRxCurrent = null;
   }
   try {
     _aqtNotifyAck = _lib
@@ -497,6 +539,61 @@ class AqtFfi {
   static void rebind(Pointer<Void> handle) => _aqtRebind(handle);
   static void setForeground(Pointer<Void> handle, bool active) =>
       _aqtSetForeground(handle, active ? 1 : 0);
+
+  /// 切换连接的真实目的地（直连 <-> relay），QUIC 连接不变。0 成功，
+  /// 负数失败（含旧 .so 没有该符号）。
+  static int setPath(Pointer<Void> handle, String ip, int port) {
+    // ignore: unnecessary_statements
+    _optionalFfiInited;
+    final fn = _aqtSetPath;
+    if (fn == null) return -1;
+    final ipPtr = ip.toNativeUtf8();
+    try {
+      return fn(handle, ipPtr, port);
+    } finally {
+      calloc.free(ipPtr);
+    }
+  }
+
+  /// 异步探测直连可达性：立即返回，0 已启动，负数失败。结果用
+  /// [probeResult] 轮询。
+  static int probeDirect(
+      Pointer<Void> handle, String host, int port, Uint8List spki, int timeoutMs) {
+    // ignore: unnecessary_statements
+    _optionalFfiInited;
+    final fn = _aqtProbeDirect;
+    if (fn == null) return -1;
+    final hostPtr = host.toNativeUtf8();
+    final spkiMem = calloc<Uint8>(spki.length);
+    for (var i = 0; i < spki.length; i++) {
+      spkiMem[i] = spki[i];
+    }
+    try {
+      return fn(handle, hostPtr, port, spkiMem, spki.length, timeoutMs);
+    } finally {
+      calloc.free(hostPtr);
+      calloc.free(spkiMem);
+    }
+  }
+
+  /// -1 进行中 / 0 不可达或超时 / 1 可达。符号缺失按 0（不可达）。
+  static int probeResult(Pointer<Void> handle) {
+    // ignore: unnecessary_statements
+    _optionalFfiInited;
+    final fn = _aqtProbeResult;
+    if (fn == null) return 0;
+    return fn(handle);
+  }
+
+  /// 自上次 setPath 以来从当前目的地收到的数据报数；负数为没有路径或
+  /// 旧 .so 没有该符号。
+  static int pathRxCurrent(Pointer<Void> handle) {
+    // ignore: unnecessary_statements
+    _optionalFfiInited;
+    final fn = _aqtPathRxCurrent;
+    if (fn == null) return -1;
+    return fn(handle);
+  }
 
   static void fileCancel(Pointer<Void> handle, int requestId) {
     _aqtFileCancel(handle, requestId);

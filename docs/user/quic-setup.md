@@ -41,16 +41,23 @@ ones on other devices.
 ### When UDP is blocked
 
 If the UDP ports can't be reached (a cloud host that only opens port 22, or
-a network that blocks UDP), FlyTerm falls back automatically: it tunnels the
-QUIC connection through the SSH connection it already has, so session
-restore and notifications keep working. The status dot's tooltip and the
-server list then show `QUIC·SSH`, and a one-time notice suggests opening the
-UDP range for lower latency.
+a network that blocks UDP), FlyTerm uses the SSH connection it already has:
+it tunnels the QUIC connection through it, so session restore and
+notifications keep working. The first connection tries UDP and the SSH
+channel at the same time, so there is no long wait. The status dot's tooltip
+and the server list show `QUIC·SSH` while the SSH channel is in use; there is
+no pop-up notice.
+
+Switching happens inside the live session, in both directions. If UDP is
+blocked mid-session, FlyTerm moves to the SSH channel after a few seconds
+without disconnecting, and while in the foreground it checks every so often
+whether UDP works again and switches back automatically. Open the UDP range
+for lower latency.
 
 To skip the UDP attempt, turn on **Always use the SSH channel** in the
-server's QUIC settings. The cost of the SSH channel: QUIC over TCP is slower
-on lossy links, and after a network change FlyTerm re-establishes SSH and
-restores the session instead of migrating the connection.
+server's QUIC settings (no automatic switching then). The cost of the SSH
+channel: QUIC over TCP is slower on lossy links, and after a network change
+FlyTerm re-establishes SSH.
 
 ## Step 3: Configure in FlyTerm
 
