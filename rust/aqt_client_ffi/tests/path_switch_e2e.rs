@@ -313,6 +313,99 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// What `aqt_rebind` does (`with_fresh_socket` + `rebind_abstract`), mid-bulk:
+/// once on direct, then again after switching to the relay. The fresh socket
+/// inherits the route, so the second rebind must keep using the relay. All
+/// lines arrive in order on the same connection.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn rebind_mid_bulk_keeps_session() -> anyhow::Result<()> {
+    let d = start_daemon().await?;
+    let (pump, a2d, d2a) = relay_path(d.port).await?;
+    let direct: SocketAddr = format!("127.0.0.1:{}", d.port).parse()?;
+    let (ep, routed) = make_routed_endpoint(d.spki.clone(), direct)?;
+    let conn = connect(&ep, routed.virtual_peer(), "aqt").await?;
+    let (mut ctrl_tx, mut ctrl_rx, ack) = hello(&conn).await?;
+    open_tab(&mut ctrl_tx, &mut ctrl_rx).await?;
+    let (mut pty_tx, mut pty_rx) = conn.accept_bi().await?;
+    pty_tx.write_all(b"stty -echo\n").await?;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+
+    const N: usize = 2000;
+    let cmd = format!(
+        "for i in $(seq -f '%04g' 1 {N}); do \
+           printf '%s|rebind-payload-0123456789-abcdefghijklmnopqrstuvwxyz-0123456789|%s|END\\n' \"$i\" \"$i\"; \
+         done; printf '@@DONE@@\\n'\n"
+    );
+    pty_tx.write_all(cmd.as_bytes()).await?;
+
+    let rebind = |cur: &Arc<aqt_client_ffi::routed_socket::RoutedSocket>| {
+        let fresh = cur.with_fresh_socket().expect("fresh socket");
+        ep.rebind_abstract(fresh.clone()).expect("rebind");
+        fresh
+    };
+
+    // Stage 0 direct -> rebind (stage 1, still direct) -> relay (stage 2)
+    // -> rebind on the relay (stage 3).
+    let mut cur = routed;
+    let mut stage = 0;
+    let (mut a2d_3, mut d2a_3) = (0, 0);
+    let text = read_bulk(&mut pty_rx, "@@DONE@@", 30, |lines| {
+        let (a, b) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
+        if stage == 0 && lines >= 400 {
+            cur = rebind(&cur);
+            stage = 1;
+        } else if stage == 1 && lines >= 800 {
+            assert_eq!((a, b), (0, 0), "pump used before the switch");
+            assert!(cur.rx_from_current() > 0, "fresh socket got no traffic");
+            cur.set_target(pump);
+            stage = 2;
+        } else if stage == 2 && lines >= 1100 && b >= 20 {
+            cur = rebind(&cur);
+            (a2d_3, d2a_3) = (a, b);
+            stage = 3;
+        }
+    })
+    .await;
+    assert_eq!(stage, 3, "bulk finished before all stages happened");
+    assert!(
+        text.contains("@@DONE@@"),
+        "sentinel missing ({} bytes)",
+        text.len()
+    );
+    let mut pos = 0;
+    for i in 1..=N {
+        let line = format!(
+            "{i:04}|rebind-payload-0123456789-abcdefghijklmnopqrstuvwxyz-0123456789|{i:04}|END"
+        );
+        let at = text[pos..]
+            .find(&line)
+            .unwrap_or_else(|| panic!("line {i} missing or out of order"));
+        pos += at + line.len();
+    }
+    // The rebound socket kept the relay route and carried the rest.
+    let (a_end, b_end) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
+    assert!(
+        a_end - a2d_3 >= 5,
+        "app->daemon after relay rebind: {}",
+        a_end - a2d_3
+    );
+    assert!(
+        b_end - d2a_3 >= 20,
+        "daemon->app after relay rebind: {}",
+        b_end - d2a_3
+    );
+    assert!(conn.close_reason().is_none(), "{:?}", conn.close_reason());
+    assert!(
+        d.store
+            .with_session(&ack.session_token, |_| ())
+            .await
+            .is_some(),
+        "session gone from the server store"
+    );
+    exit_shell(&mut pty_tx, &mut pty_rx).await;
+    Ok(())
+}
+
 #[test]
 fn set_path_ffi_rejects_null_and_bad_ip() {
     let ip = CString::new("127.0.0.1").unwrap();
