@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-08
+
 ### Fixed
 - Releases 0.7.0–0.9.0 shipped without the bundled flyterm-server binaries:
   the app could not install the server on a new host, nor upgrade an old one
