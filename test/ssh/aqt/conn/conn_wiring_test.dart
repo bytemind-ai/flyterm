@@ -47,6 +47,32 @@ void main() {
     expect(f.sinceLastWriteMs, isNull);
   });
 
+  test('readFacts 透传 canSwitchPath，默认 false', () {
+    final off = ReconnectService.readFacts(
+        nowMs: 1, rawRecvAgeMs: 2, rebindCount: 0,
+        isForeground: true, networkType: 'wifi');
+    expect(off.canSwitchPath, isFalse);
+    final on = ReconnectService.readFacts(
+        nowMs: 1, rawRecvAgeMs: 2, rebindCount: 0,
+        isForeground: true, networkType: 'wifi', canSwitchPath: true);
+    expect(on.canSwitchPath, isTrue);
+  });
+
+  test('StartPathSwitch 接到路线控制器，换网后通知控制器', () {
+    // 与下面 ProbeAnswered 那条同一手法：装配整个 ReconnectService 太重，
+    // 至少保证接线点还在、onPathSwitch 不再是空占位。
+    final src = File('lib/ssh/reconnect_service.dart').readAsStringSync();
+    final code = src
+        .split('\n')
+        .where((l) =>
+            !l.trimLeft().startsWith('//') && !l.trimLeft().startsWith('///'))
+        .join('\n');
+    expect(code, isNot(contains('onPathSwitch: () {}')));
+    expect(code, contains('.onStartPathSwitch()'));
+    expect(code, contains('?.onNetworkChanged()'));
+    expect(code, contains('canSwitchPath: _isForegroundNow'));
+  });
+
   // 约束要能被检查，否则会慢慢腐蚀 —— 与 `conn_runner_test.dart` 末尾那条
   // 「不许读 state 做分支」同一个手法（仓库先例：notify_hooks_test 断言文档
   // 与脚本逐字节一致）。

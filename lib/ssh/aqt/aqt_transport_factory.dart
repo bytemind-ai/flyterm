@@ -811,8 +811,35 @@ class AqtTransportFactory implements TransportFactory {
     @visibleForTesting Duration relayBudget = const Duration(seconds: 8),
   }) async {
     if (route == AqtRoute.direct) {
-      return _resumeEndpoint(host, port, spki, sessionToken, tabId, budget);
+      final r =
+          await _resumeEndpoint(host, port, spki, sessionToken, tabId, budget);
+      // 直连 RESUME 因网络类原因失败（§4.6）：直连本身可能被墙/丢包，会话
+      // 却还在 —— 用中继再试一次，预算另计。sessionNotFound / handshakeFailed
+      // 换路也没用，不重试。
+      if (openRelay != null &&
+          r is AqtResumeFailed &&
+          (r.reason == AqtResumeFailReason.networkTimeout ||
+              r.reason == AqtResumeFailReason.unknownError)) {
+        debugPrint('[RESUME] direct failed (${r.reason.name}), retrying over relay');
+        return _resumeViaRelay(host, port, spki, sessionToken, tabId, budget,
+            openRelay, relayBudget);
+      }
+      return r;
     }
+    return _resumeViaRelay(host, port, spki, sessionToken, tabId, budget,
+        openRelay, relayBudget);
+  }
+
+  static Future<AqtResumeResult> _resumeViaRelay(
+    String host,
+    int port,
+    Uint8List spki,
+    Uint8List sessionToken,
+    int tabId,
+    Duration budget,
+    Future<AqtSshRelay> Function(int daemonPort)? openRelay,
+    Duration relayBudget,
+  ) async {
     if (openRelay == null) {
       return const AqtResumeFailed(AqtResumeFailReason.unknownError,
           detail: 'relayed session but no relay opener');

@@ -158,6 +158,65 @@ void main() {
     expect(s.aqtTabId, 3);
   });
 
+  test('direct network failure retries over relay', () async {
+    final relay = await AqtSshRelay.attach(_Exec());
+    addTearDown(relay.close);
+    endpointResult = (host, port) => host == 'srv.example.com'
+        ? const AqtResumeFailed(AqtResumeFailReason.networkTimeout, detail: 'x')
+        : AqtResumeSuccess(AqtTransport.testStub(port: port));
+    final r = await AqtTransportFactory.tryResumeWithInfoDetailed(
+      host: 'srv.example.com',
+      port: 61005,
+      spki: spki,
+      sessionToken: token,
+      tabId: 1,
+      openRelay: (daemonPort) async {
+        expect(daemonPort, 61005);
+        return relay;
+      },
+    );
+    expect(endpointCalls,
+        [('srv.example.com', 61005), ('127.0.0.1', relay.localPort)]);
+    final t = (r as AqtResumeSuccess).transport;
+    expect(t.route, AqtRoute.viaSsh);
+    expect(t.lastPort, 61005, reason: '持久化的是守护进程端口');
+  });
+
+  test('sessionNotFound does not try relay', () async {
+    var opened = 0;
+    endpointResult = (_, __) =>
+        const AqtResumeFailed(AqtResumeFailReason.sessionNotFound, detail: 'x');
+    final r = await AqtTransportFactory.tryResumeWithInfoDetailed(
+      host: 'srv.example.com',
+      port: 61005,
+      spki: spki,
+      sessionToken: token,
+      tabId: 1,
+      openRelay: (_) async {
+        opened++;
+        throw StateError('must not be called');
+      },
+    );
+    expect(r, isA<AqtResumeFailed>());
+    expect((r as AqtResumeFailed).reason, AqtResumeFailReason.sessionNotFound);
+    expect(opened, 0);
+    expect(endpointCalls, [('srv.example.com', 61005)]);
+  });
+
+  test('direct failure without opener stays failed', () async {
+    endpointResult = (_, __) =>
+        const AqtResumeFailed(AqtResumeFailReason.networkTimeout, detail: 'x');
+    final r = await AqtTransportFactory.tryResumeWithInfoDetailed(
+      host: 'srv.example.com',
+      port: 61005,
+      spki: spki,
+      sessionToken: token,
+      tabId: 1,
+    );
+    expect(r, isA<AqtResumeFailed>());
+    expect(endpointCalls, [('srv.example.com', 61005)]);
+  });
+
   group('relayFailureOf', () {
     test('finds the relay failure through every wrapper', () {
       expect(AqtTransportFactory.relayFailureOf(const AqtRelayUnsupportedException()),

@@ -36,6 +36,7 @@ import 'aqt/aqt_ffi.dart'
     show AqtDisposition, AqtNewSession, AqtRestored, AqtTabGone, PathStats;
 import 'aqt/aqt_session_state.dart'
     show AqtSessionState, AqtSessionStateRepository, sessionStateFor;
+import 'aqt/aqt_path_controller.dart';
 import 'aqt/aqt_route.dart';
 import 'aqt/aqt_ssh_relay.dart';
 import 'aqt/notify_seen_store.dart' show NotifySeenStore;
@@ -648,6 +649,9 @@ class ReconnectService with WidgetsBindingObserver {
   /// 这是 runner 的**唯一**创建点 —— 全仓库 6 个 transport 赋值点都经这里，
   /// 包括首连（terminal_screen.dart:921）与 prewarm 接管。
   void _onTabTransportChanged(SessionTab tab, RemoteTransport? next) {
+    // 控制器绑死一个 transport：换了（包括 RESUME 换出来的新 transport）就
+    // 销毁旧的、给新的另建一个。
+    _disposePathController(tab.id);
     if (next is! AqtTransport) {
       _teardownRunner(tab.id);
       return;
@@ -669,8 +673,23 @@ class ReconnectService with WidgetsBindingObserver {
       onResume: () => unawaited(_proactiveResumeAqtTab(tab,
           source: ResumeTrigger.watchdog, fromMachine: true)),
       onBootstrap: () => unawaited(_reconnectWithRetry(tab)),
-      // 路线切换由后续任务接入；Facts.canSwitchPath 目前恒为 false，不会触发。
-      onPathSwitch: () {},
+      // 放进 microtask：控制器在 disposed / 后台时会**同步**喂回
+      // PathSwitchFailed，而这里正处在 runner.feed 的动作循环里 —— 重入会把
+      // 两次 step 的动作交错执行。
+      onPathSwitch: () => scheduleMicrotask(() {
+        final c = _pathControllers[tab.id];
+        if (c != null) {
+          unawaited(c.onStartPathSwitch());
+        } else {
+          // canSwitchPath 要求控制器存在，正常走不到这里；万一走到，也得给状态机
+          // 一个回音，否则它一直以为切换在途。
+          final t = tab.transport;
+          if (t is AqtTransport) {
+            _runners[tab.id]
+                ?.feed(const conn.PathSwitchFailed(), _factsFor(tab, t));
+          }
+        }
+      }),
       onClose: next.close,
       onBanner: (code) => _setReconnectMessage(
         tab,
@@ -691,11 +710,49 @@ class ReconnectService with WidgetsBindingObserver {
       },
     );
     next.onWatchdogTick = () => _feedTick(tab);
+    final ctl = AqtPathController(
+      transport: next,
+      openRelay: (p) => openAqtRelay(tab, p),
+      resolveDirect: () => _resolveDirect(tab, next),
+      // 只认自己那个 transport：已被换掉的话，迟到的事件不属于新 runner。
+      feed: (e) {
+        if (!identical(tab.transport, next)) return;
+        _runners[tab.id]?.feed(e, _factsFor(tab, next));
+      },
+      // 路线变了 → aqt_session_state.via_ssh 跟着变，冷启动 RESUME 才会走对路。
+      onRouteChanged: () {
+        if (identical(tab.transport, next)) unawaited(_persistAqtSession(tab));
+      },
+      isForeground: () => _isForegroundNow,
+    );
+    _pathControllers[tab.id] = ctl;
+    ctl.start();
     // 刻意不在这里喂 ConnectedOk —— 「连上了」的语义应当是「已接好线、能收
     // 数据」，由 _installAqtTransport 在 startStreaming 之后喂。
   }
 
+  /// tabId → 该 tab 当前 AQT transport 的路线控制器（直连 ↔ SSH 中继，同一条
+  /// QUIC 连接内换路）。与 transport 同生共死，见 [_onTabTransportChanged]。
+  final _pathControllers = <String, AqtPathController>{};
+
+  void _disposePathController(String tabId) {
+    _pathControllers.remove(tabId)?.dispose();
+  }
+
+  /// 直连目的地址：服务器域名解析出的第一个 IPv4，端口是 daemon 端口。
+  /// 每次调用都重新解析（控制器自己缓存，换网时清掉）。
+  Future<({String ip, int port})?> _resolveDirect(
+      SessionTab tab, AqtTransport t) async {
+    final port = t.lastPort;
+    if (port == null) return null;
+    final addrs = await InternetAddress.lookup(tab.server.host,
+        type: InternetAddressType.IPv4);
+    if (addrs.isEmpty) return null;
+    return (ip: addrs.first.address, port: port);
+  }
+
   void _teardownRunner(String tabId) {
+    _disposePathController(tabId);
     _machineTicks[tabId]?.cancel();
     _machineTicks.remove(tabId);
     _runners.remove(tabId);
@@ -707,6 +764,10 @@ class ReconnectService with WidgetsBindingObserver {
         rebindCount: t.lastPathStats.rebindingCount,
         isForeground: _isForegroundNow,
         networkType: _lastConnectivityType ?? 'wifi',
+        // 只在前台、非强制中继、且这条 transport 有控制器时才允许换路。
+        canSwitchPath: _isForegroundNow &&
+            !tab.server.aqtViaSsh &&
+            _pathControllers[tab.id] != null,
         // 与 rawRecvAgeMs 并列的第二个活性维度：前者数入向 UDP 字节（ACK /
         // keepalive / 心跳 datagram 都算），后者只在真正收到 PTY 数据时归零。
         // stream 停摆而连接层照常喘气时，只有后者看得见。
@@ -1254,6 +1315,9 @@ class ReconnectService with WidgetsBindingObserver {
     SessionTab.onTransportChanged = null;
     for (final id in _machineTicks.keys.toList()) {
       _teardownRunner(id);
+    }
+    for (final id in _pathControllers.keys.toList()) {
+      _disposePathController(id);
     }
     _sub?.cancel();
     _sub = null;
@@ -1992,6 +2056,9 @@ class ReconnectService with WidgetsBindingObserver {
         if (t is AqtTransport) {
           baselineMigrationCounts[t] = t.lastPathStats.migrationCount;
           t.migrateEndpoint();
+          // 走直连时控制器什么都不做（迁移就是上面这行）；走中继时立即探测
+          // 直连并重建中继。
+          _pathControllers[tab.id]?.onNetworkChanged();
         }
       }
       if (kAggressiveMigration) {
@@ -2978,6 +3045,7 @@ class ReconnectService with WidgetsBindingObserver {
     required String networkType,
     int ptySilenceMs = 0,
     int? sinceLastWriteMs,
+    bool canSwitchPath = false,
   }) =>
       conn.Facts(
         nowMs: nowMs,
@@ -2987,6 +3055,7 @@ class ReconnectService with WidgetsBindingObserver {
         networkType: networkType,
         ptySilenceMs: ptySilenceMs,
         sinceLastWriteMs: sinceLastWriteMs,
+        canSwitchPath: canSwitchPath,
       );
 
   /// 服务端处置 → 终端动作。**唯一**一份实现。
