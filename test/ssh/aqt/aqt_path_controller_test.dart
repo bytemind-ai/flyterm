@@ -54,6 +54,10 @@ class _H {
   bool probeOk = false;
   bool probePending = false;
   int resolveCalls = 0;
+  bool directAllowed = true;
+
+  /// 非 null 时替代默认解析（用于模拟 DNS 抛错）。
+  Future<({String ip, int port})?> Function()? resolveImpl;
   final events = <Event>[];
   int routeChanged = 0;
   final openPorts = <int>[];
@@ -89,8 +93,11 @@ class _H {
         },
         resolveDirect: () async {
           resolveCalls++;
+          final impl = resolveImpl;
+          if (impl != null) return impl();
           return (ip: _serverIp, port: _daemonPort);
         },
+        directAllowed: () => directAllowed,
         feed: events.add,
         onRouteChanged: () => routeChanged++,
         isForeground: () => fg,
@@ -134,6 +141,11 @@ class _H {
     });
     fa.flushMicrotasks();
   }
+}
+
+class _DnsError implements Exception {
+  const _DnsError(this.message);
+  final String message;
 }
 
 bool _closed(FakeAsync async, AqtSshRelay r) {
@@ -390,6 +402,62 @@ void main() {
       r2.close();
       async.flushMicrotasks();
       expect(h.openPorts, hasLength(2));
+    });
+  });
+
+  test('directAllowed false: never probes, relay drop still rebuilds', () async {
+    final h = _H();
+    addTearDown(h.dispose);
+    final (r1, exec1) = await h.relay();
+    final (r2, _) = await h.relay();
+    h.onRelay(r1);
+    h.directAllowed = false;
+    h.probeOk = true;
+    h.openRelay = (_) => Future.value(r2);
+    h.fa.run((async) {
+      h.c.start();
+      async.elapse(const Duration(seconds: 700));
+      expect(h.probeCalls, 0);
+      h.c.onNetworkChanged();
+      exec1.end();
+      async.flushMicrotasks();
+      expect(h.openPorts, [_daemonPort]);
+      expect(identical(h.transport.relay, r2), isTrue);
+      expect(h.transport.route, AqtRoute.viaSsh);
+      async.elapse(const Duration(seconds: 700));
+      expect(h.probeCalls, 0, reason: '强制 SSH 通道的会话绝不切回直连');
+      expect(h.resolveCalls, 0);
+      expect(h.routeChanged, 0);
+    });
+  });
+
+  test('resolveDirect throwing once does not poison later probes', () async {
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, _) = await h.relay();
+    h.onRelay(relay);
+    h.probeOk = true;
+    var fail = true;
+    h.resolveImpl = () async {
+      if (fail) {
+        fail = false;
+        throw const _DnsError('dns not ready');
+      }
+      return (ip: _serverIp, port: _daemonPort);
+    };
+    h.fa.run((async) {
+      h.c.start();
+      async.elapse(const Duration(seconds: 60));
+      expect(h.resolveCalls, 1);
+      expect(h.probeCalls, 0);
+      // 第一次失败后升一级：120 s 后再探，这次要重新解析。
+      async.elapse(const Duration(seconds: 120));
+      expect(h.resolveCalls, 2);
+      expect(h.probeCalls, 1);
+      expect(h.setPaths, [(_serverIp, _daemonPort)]);
+      h.pathRx = 1;
+      async.elapse(const Duration(seconds: 2));
+      expect(h.transport.route, AqtRoute.direct);
     });
   });
 

@@ -677,6 +677,8 @@ class ReconnectService with WidgetsBindingObserver {
       // PathSwitchFailed，而这里正处在 runner.feed 的动作循环里 —— 重入会把
       // 两次 step 的动作交错执行。
       onPathSwitch: () => scheduleMicrotask(() {
+        // transport 已被换掉：旧 runner 随之作废，不需要回音。
+        if (!identical(tab.transport, next)) return;
         final c = _pathControllers[tab.id];
         if (c != null) {
           unawaited(c.onStartPathSwitch());
@@ -724,6 +726,8 @@ class ReconnectService with WidgetsBindingObserver {
         if (identical(tab.transport, next)) unawaited(_persistAqtSession(tab));
       },
       isForeground: () => _isForegroundNow,
+      // 「总是走 SSH 通道」的服务器只走中继，绝不探测切回直连。
+      directAllowed: () => !tab.server.aqtViaSsh,
     );
     _pathControllers[tab.id] = ctl;
     ctl.start();
@@ -745,10 +749,16 @@ class ReconnectService with WidgetsBindingObserver {
       SessionTab tab, AqtTransport t) async {
     final port = t.lastPort;
     if (port == null) return null;
-    final addrs = await InternetAddress.lookup(tab.server.host,
-        type: InternetAddressType.IPv4);
-    if (addrs.isEmpty) return null;
-    return (ip: addrs.first.address, port: port);
+    try {
+      final addrs = await InternetAddress.lookup(tab.server.host,
+          type: InternetAddressType.IPv4);
+      if (addrs.isEmpty) return null;
+      return (ip: addrs.first.address, port: port);
+    } catch (e) {
+      // 离线 / DNS 未就绪：按控制器的约定返回 null（「解析不了」），下次再试。
+      debugPrint('[AqtPath] resolve ${tab.server.host} failed: $e');
+      return null;
+    }
   }
 
   void _teardownRunner(String tabId) {

@@ -28,6 +28,7 @@ class AqtPathController {
     required this._feed,
     required this._onRouteChanged,
     required this._isForeground,
+    this._directAllowed = _always,
     this._relayBudget = const Duration(seconds: 8),
     this._confirmWindow = const Duration(seconds: 2),
     this._probeIntervals = const [
@@ -43,6 +44,11 @@ class AqtPathController {
   final void Function(Event e) _feed;
   final void Function() _onRouteChanged;
   final bool Function() _isForeground;
+
+  /// 为 false 时（服务器设了「总是走 SSH 通道」）绝不探测、绝不切回直连；
+  /// 中继断了照样重建（§4.5）。
+  final bool Function() _directAllowed;
+  static bool _always() => true;
   final Duration _relayBudget;
   final Duration _confirmWindow;
   final List<Duration> _probeIntervals;
@@ -260,6 +266,7 @@ class AqtPathController {
     _probeTimer?.cancel();
     _probeTimer = null;
     if (_disposed || _transport.route != AqtRoute.viaSsh) return;
+    if (!_directAllowed()) return;
     final i = _probeLevel.clamp(0, _probeIntervals.length - 1);
     _probeTimer = Timer(_probeIntervals[i], () {
       _probeTimer = null;
@@ -271,6 +278,7 @@ class AqtPathController {
   /// 不升级 —— 换网后的间隔要从 60 s 重新数起。
   Future<void> _probe({bool escalate = true}) async {
     if (_disposed || _transport.route != AqtRoute.viaSsh) return;
+    if (!_directAllowed()) return;
     if (_probing) {
       _probeAgain = true;
       return;
@@ -303,7 +311,14 @@ class AqtPathController {
 
   Future<bool> _probeAndSwitchBack() async {
     final epoch = _epoch;
-    final addr = await (_direct ??= _resolveDirect());
+    ({String ip, int port})? addr;
+    try {
+      addr = await (_direct ??= _resolveDirect());
+    } catch (e) {
+      // 解析抛错（换网刚发生、DNS 还没好）不能缓存：下一次探测要重新解析。
+      _log('probe: resolve threw: $e');
+      addr = null;
+    }
     if (addr == null) {
       _direct = null;
       _log('probe: direct address unresolved');

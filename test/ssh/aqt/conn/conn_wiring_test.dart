@@ -71,6 +71,7 @@ void main() {
     expect(code, contains('.onStartPathSwitch()'));
     expect(code, contains('?.onNetworkChanged()'));
     expect(code, contains('canSwitchPath: _isForegroundNow'));
+    expect(code, contains('directAllowed: () => !tab.server.aqtViaSsh'));
   });
 
   // 约束要能被检查，否则会慢慢腐蚀 —— 与 `conn_runner_test.dart` 末尾那条
