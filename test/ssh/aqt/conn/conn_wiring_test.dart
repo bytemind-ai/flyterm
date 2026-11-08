@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flyterm/ssh/aqt/aqt_route.dart';
 import 'package:flyterm/ssh/aqt/aqt_transport_factory.dart';
 import 'package:flyterm/ssh/aqt/conn/conn_types.dart';
 import 'package:flyterm/ssh/reconnect_service.dart';
@@ -72,6 +73,57 @@ void main() {
     expect(code, contains('?.onNetworkChanged()'));
     expect(code, contains('canSwitchPath: _isForegroundNow'));
     expect(code, contains('directAllowed: () => !tab.server.aqtViaSsh'));
+  });
+
+  test('换网：走中继且有控制器的 tab 跳过立即 RESUME 与迁移审计', () {
+    expect(
+        ReconnectService.shouldSkipNetworkChangeResume(
+            route: AqtRoute.viaSsh, hasController: true),
+        isTrue);
+    // 走直连：照旧 migrate + RESUME + 审计。
+    expect(
+        ReconnectService.shouldSkipNetworkChangeResume(
+            route: AqtRoute.direct, hasController: true),
+        isFalse);
+    // 没有控制器就没人在同一连接里换路：只能靠 RESUME。
+    expect(
+        ReconnectService.shouldSkipNetworkChangeResume(
+            route: AqtRoute.viaSsh, hasController: false),
+        isFalse);
+    expect(
+        ReconnectService.shouldSkipNetworkChangeResume(
+            route: AqtRoute.direct, hasController: false),
+        isFalse);
+  });
+
+  test('换网的两处 proactive RESUME 与审计布防都查了跳过谓词', () {
+    final src = File('lib/ssh/reconnect_service.dart').readAsStringSync();
+    final code = src
+        .split('\n')
+        .where((l) =>
+            !l.trimLeft().startsWith('//') && !l.trimLeft().startsWith('///'))
+        .join('\n');
+    // 硬换网分支：从「conn→」日志到 Mosh 心跳那段。
+    final start = code.indexOf("_logResume('conn→");
+    final end = code.indexOf('_heartbeatMoshTabs();', start);
+    final typeChangeEnd = code.indexOf('_auditMoshAfterTypeChange', end);
+    expect(start, greaterThan(0));
+    final hard = code.substring(start, typeChangeEnd);
+    // 两处 proactive RESUME（立即那次 + typeChanged 块里那次）都带 skipRelayed。
+    expect(
+        RegExp(r'_proactiveResumeAqtTabs\([^)]*skipRelayed: true')
+            .allMatches(hard)
+            .length,
+        2);
+    // 审计基线只记没被跳过的 tab：布防处查谓词。
+    final arm = code.substring(start, end);
+    expect(arm, contains('_skipOnNetworkChange(tab)'));
+    // _proactiveResumeAqtTabs 内部按 skipRelayed 查谓词。
+    final fn = code.substring(code.indexOf('void _proactiveResumeAqtTabs('));
+    expect(fn.substring(0, fn.indexOf('\n  }\n')),
+        contains('skipRelayed && _skipOnNetworkChange(tab)'));
+    // 谓词本身落到纯函数上。
+    expect(code, contains('shouldSkipNetworkChangeResume('));
   });
 
   // 约束要能被检查，否则会慢慢腐蚀 —— 与 `conn_runner_test.dart` 末尾那条
