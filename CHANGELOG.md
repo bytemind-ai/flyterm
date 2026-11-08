@@ -29,6 +29,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   with them. The privacy policy and terms no longer describe payments.
 
 ### Fixed
+- iOS builds shipped without the bundled flyterm-server binaries, so the iOS
+  app could not install the server and QUIC never worked. An Xcode build phase
+  now runs `scripts/build-server-assets.sh` (as Gradle does on Android), and
+  the script builds both Linux binaries with zig where there is no musl cross
+  compiler (macOS).
 - QUIC sessions on hosts whose environment says `LANG=C` / `LC_ALL=C` (common
   on minimal images) showed CJK text as `???`. flyterm-server now gives the
   shell a UTF-8 character set (`C.UTF-8`) when the inherited locale is not
