@@ -67,6 +67,8 @@ pub struct SessionHandle {
     /// change (Wi-Fi ↔ cellular). Dropping this would tear down the I/O
     /// driver and kill the connection.
     pub endpoint: Arc<RwLock<Option<quinn::Endpoint>>>,
+    /// Routed UDP socket under `endpoint` (real-destination switching).
+    pub routed: std::sync::Mutex<Option<Arc<crate::routed_socket::RoutedSocket>>>,
     /// Active QUIC connection (set after QUIC handshake completes)
     pub conn: Arc<RwLock<Option<quinn::Connection>>>,
     /// Write half of the control stream (set after HELLO handshake)
@@ -154,6 +156,7 @@ impl SessionHandle {
                 event_tx: tx,
                 conn_state: Arc::new(Mutex::new(ConnState::Connecting)),
                 endpoint: Arc::new(RwLock::new(None)),
+                routed: std::sync::Mutex::new(None),
                 conn: Arc::new(RwLock::new(None)),
                 ctrl_tx: Arc::new(Mutex::new(None)),
                 ctrl_rx: Arc::new(Mutex::new(None)),

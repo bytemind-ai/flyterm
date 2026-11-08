@@ -17,7 +17,7 @@ use aqt_protocol::{
 // read_frame_from::<Notify>() infers P from context) — importing it by name
 // here would be unused, same reasoning as connection.rs's NotifyAck-only import.
 
-use crate::client::{connect, make_client_endpoint};
+use crate::client::{connect, make_routed_endpoint};
 use crate::error::AqtError;
 use crate::handle::{AqtEvent, AqtEventKind, ConnState, SessionHandle, TabHandle};
 use crate::runtime::RUNTIME;
@@ -462,7 +462,7 @@ pub unsafe extern "C" fn aqt_connect(
             rt.spawn(async move {
                 // This Arc owns the incremented refcount; drops at end of scope.
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
-                match make_client_endpoint(spki) {
+                match make_routed_endpoint(spki, addr) {
                     Err(e) => {
                         tracing::warn!("make_endpoint: {e:#}");
                         let _ = h.event_tx.send(AqtEvent {
@@ -474,7 +474,7 @@ pub unsafe extern "C" fn aqt_connect(
                         *h.conn_state.lock().await = ConnState::Failed;
                         // h drops here, decrementing refcount back to 1
                     }
-                    Ok(ep) => match connect(&ep, addr, &sni).await {
+                    Ok((ep, routed)) => match connect(&ep, routed.virtual_peer(), &sni).await {
                         Err(e) => {
                             tracing::warn!("connect: {e:#}");
                             *h.conn_state.lock().await = ConnState::Failed;
@@ -490,6 +490,7 @@ pub unsafe extern "C" fn aqt_connect(
                             // Store endpoint + connection. Endpoint must
                             // outlive any aqt_rebind() call (migration).
                             *h.endpoint.write().await = Some(ep.clone());
+                            *h.routed.lock().unwrap() = Some(routed);
                             *h.conn.write().await = Some(conn.clone());
                             *h.conn_state.lock().await = ConnState::Connected;
 
@@ -1293,30 +1294,74 @@ pub unsafe extern "C" fn aqt_rebind(handle: *mut c_void) -> c_int {
             rt.spawn(async move {
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
                 let ep_opt = h.endpoint.read().await.clone();
-                let Some(ep) = ep_opt else {
+                let routed_opt = h.routed.lock().unwrap().clone();
+                let (Some(ep), Some(old)) = (ep_opt, routed_opt) else {
                     tracing::warn!("aqt_rebind: no endpoint stored — skipping");
                     return;
                 };
-                // Bind a fresh UDP socket on the OS's current default route.
-                // "0.0.0.0:0" lets the kernel pick interface + ephemeral port.
-                let socket = match std::net::UdpSocket::bind("0.0.0.0:0") {
-                    Ok(s) => s,
+                // Fresh socket on the OS's current default route; the
+                // destination (route) is inherited unchanged.
+                let fresh = match old.with_fresh_socket() {
+                    Ok(r) => r,
                     Err(e) => {
-                        tracing::warn!("aqt_rebind: socket bind failed: {e}");
+                        tracing::warn!("aqt_rebind: fresh socket failed: {e}");
                         return;
                     }
                 };
-                if let Err(e) = socket.set_nonblocking(true) {
-                    tracing::warn!("aqt_rebind: set_nonblocking failed: {e}");
-                    return;
-                }
-                if let Err(e) = ep.rebind(socket) {
+                if let Err(e) = ep.rebind_abstract(fresh.clone()) {
                     tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
                     return;
                 }
+                *h.routed.lock().unwrap() = Some(fresh);
                 tracing::info!("aqt_rebind: endpoint rebound to fresh socket");
                 // Wake the new path: send a probe datagram so the server
                 // observes the new four-tuple and emits PATH_CHALLENGE.
+                let conn_opt = h.conn.read().await.clone();
+                if let Some(conn) = conn_opt {
+                    let _ = conn.send_datagram(bytes::Bytes::from_static(b"\x00"));
+                }
+            });
+        });
+        AqtError::Ok.as_i32()
+    }));
+    result.unwrap_or(AqtError::Panic.as_i32())
+}
+
+/// Switch the real destination of the connection (direct <-> relay) without
+/// touching QUIC state: the same connection/session keeps running, only the
+/// UDP target behind the virtual peer changes.
+///
+/// Returns 0 on success, `InvalidArg` for null/non-IP arguments,
+/// `NotConnected` if no routed socket exists yet.
+///
+/// # Safety
+/// `handle` must be a live handle; `ip` a valid NUL-terminated string.
+#[no_mangle]
+pub unsafe extern "C" fn aqt_set_path(handle: *mut c_void, ip: *const c_char, port: u16) -> c_int {
+    if handle.is_null() || ip.is_null() {
+        return AqtError::InvalidArg.as_i32();
+    }
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| -> i32 {
+        let ip_str = match CStr::from_ptr(ip).to_str() {
+            Ok(s) => s,
+            Err(_) => return AqtError::InvalidArg.as_i32(),
+        };
+        let ip_addr: std::net::IpAddr = match ip_str.parse() {
+            Ok(a) => a,
+            Err(_) => return AqtError::InvalidArg.as_i32(),
+        };
+        let h = &*(handle as *const SessionHandle);
+        let Some(routed) = h.routed.lock().unwrap().clone() else {
+            return AqtError::NotConnected.as_i32();
+        };
+        routed.set_target(SocketAddr::new(ip_addr, port));
+        // Wake the new path (same as aqt_rebind): a datagram makes the peer
+        // observe the new route promptly.
+        let handle_ptr = handle as usize;
+        Arc::increment_strong_count(handle as *const SessionHandle);
+        RUNTIME.dispatch(move |rt| {
+            rt.spawn(async move {
+                let h = Arc::from_raw(handle_ptr as *const SessionHandle);
                 let conn_opt = h.conn.read().await.clone();
                 if let Some(conn) = conn_opt {
                     let _ = conn.send_datagram(bytes::Bytes::from_static(b"\x00"));
@@ -1786,15 +1831,17 @@ async fn do_quic_resume(
     last_in_off: u64,
     ring_tail_hash: u64,
 ) -> anyhow::Result<()> {
-    let ep = make_client_endpoint(spki)?;
+    let (ep, routed) = crate::client::make_routed_endpoint(spki, addr)?;
     // 0-RTT RESUME: send the RESUME frame in the initial packet alongside
     // TLS ClientHello. Saves 1 RTT vs awaiting full handshake first.
     // RESUME is idempotent (session_token validated server-side, replay benign).
-    let (conn, zero_rtt_accepted) = crate::client::connect_0rtt(&ep, addr, "aqt").await?;
+    let (conn, zero_rtt_accepted) =
+        crate::client::connect_0rtt(&ep, routed.virtual_peer(), "aqt").await?;
     tracing::debug!("aqt_resume: 0-RTT accepted={}", zero_rtt_accepted);
 
     // Store endpoint + connection. Endpoint must outlive aqt_rebind().
     *h.endpoint.write().await = Some(ep.clone());
+    *h.routed.lock().unwrap() = Some(routed);
     *h.conn.write().await = Some(conn.clone());
     *h.conn_state.lock().await = ConnState::Connected;
 
