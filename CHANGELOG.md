@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+- Releases 0.7.0–0.9.0 shipped without the bundled flyterm-server binaries:
+  the app could not install the server on a new host, nor upgrade an old one
+  (so the SSH channel failed with "server too old" on hosts still running an
+  older server). The Android build now bundles them before packaging, CI and
+  the release workflow refuse an APK without them, and a failed server
+  upgrade is reported instead of silently ignored.
+- The connection error screen shows the localized message instead of the
+  raw exception.
+
 ## [0.9.0] - 2026-11-08
 
 ### Changed

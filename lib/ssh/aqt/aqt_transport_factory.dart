@@ -1223,8 +1223,21 @@ class AqtTransportFactory implements TransportFactory {
         ));
       }
     } catch (e) {
-      debugPrint('[AQT] _maybeUpgrade error (swallowed): $e');
+      debugPrint('[AQT] _maybeUpgrade error: $e');
+      // ignore: use_build_context_synchronously
+      reportUpgradeFailure(dialogContext, e);
     }
+  }
+
+  /// Tells the user a server upgrade failed. Connecting still goes ahead —
+  /// the old server may be good enough — but staying silent is how a missing
+  /// APK asset left hosts on an old server for three releases.
+  static void reportUpgradeFailure(BuildContext? context, Object error) {
+    if (context == null || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(context.l10n.aqtServerUpgradeFailed('$error')),
+      duration: const Duration(seconds: 8),
+    ));
   }
 
   /// Returns true when the server's version is sufficient — no upgrade needed.
