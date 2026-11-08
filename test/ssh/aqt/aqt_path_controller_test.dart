@@ -193,6 +193,63 @@ void main() {
     });
   });
 
+  // 请求后 500 ms 直连来过包，中继 2 s 后落地 → 直连已恢复，不切。
+  test('inbound since the request means direct recovered', () async {
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, _) = await h.relay();
+    h.openRelay =
+        (_) => Future.delayed(const Duration(seconds: 2), () => relay);
+    h.fa.run((async) {
+      h.c.onStartPathSwitch();
+      async.elapse(const Duration(milliseconds: 500));
+      h.recvAge = 1500; // 请求后 500 ms 来过一个包
+      async.elapse(const Duration(milliseconds: 1500));
+      expect(h.setPaths, isEmpty);
+      expect(_closed(async, relay), isTrue);
+      expect(h.events, [isA<PathSwitchFailed>()]);
+      expect(h.transport.route, AqtRoute.direct);
+    });
+  });
+
+  test('inbound since the request rejects even when older than 3 s', () async {
+    // 短暂丢包：请求后 1 s 直连恢复过（之后又静了），中继 5 s 才落地。
+    // 落地时 lastRecvAgeMs = 4000：旧判据（< 3000）会切，但请求之后确实收到过
+    // 直连的包 —— 直连是通的，切过去是误切。
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, _) = await h.relay();
+    h.openRelay =
+        (_) => Future.delayed(const Duration(seconds: 5), () => relay);
+    h.fa.run((async) {
+      h.c.onStartPathSwitch();
+      async.elapse(const Duration(seconds: 1));
+      h.recvAge = 4000; // 落地时（t+5 s）看到的值：t+1 s 来过包
+      async.elapse(const Duration(seconds: 4));
+      expect(h.setPaths, isEmpty);
+      expect(_closed(async, relay), isTrue);
+      expect(h.events, [isA<PathSwitchFailed>()]);
+      expect(h.transport.route, AqtRoute.direct);
+    });
+  });
+
+  test('no inbound since the request switches', () async {
+    final h = _H();
+    addTearDown(h.dispose);
+    final (relay, _) = await h.relay();
+    h.recvAge = 9000;
+    h.openRelay =
+        (_) => Future.delayed(const Duration(seconds: 2), () => relay);
+    h.fa.run((async) {
+      h.c.onStartPathSwitch();
+      async.elapse(const Duration(seconds: 2));
+      expect(h.setPaths, [('127.0.0.1', relay.localPort)]);
+      expect(h.events, [isA<PathSwitched>()]);
+      expect(h.transport.route, AqtRoute.viaSsh);
+      expect(_closed(async, relay), isFalse);
+    });
+  });
+
   test('relay open failure reports failed', () async {
     final h = _H();
     addTearDown(h.dispose);

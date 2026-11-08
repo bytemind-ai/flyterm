@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import 'aqt_route.dart';
@@ -53,9 +54,6 @@ class AqtPathController {
   final Duration _confirmWindow;
   final List<Duration> _probeIntervals;
 
-  /// 打开中继期间，收包间隔回落到这以下就算直连自己恢复了。
-  static const int _recoveredMs = 3000;
-
   /// 确认窗口内查 `pathRxFromCurrent` 的间隔。
   static const Duration _confirmStep = Duration(milliseconds: 100);
 
@@ -101,6 +99,8 @@ class AqtPathController {
   /// 状态机的 `StartPathSwitch`。**每次调用恰好喂回一个** `PathSwitched` 或
   /// `PathSwitchFailed` —— 状态机在听到回音前一直认为切换在途。
   Future<void> onStartPathSwitch() async {
+    // 请求时刻：中继落地时若这之后直连收到过包，就算直连自己恢复了。
+    final requestedAt = clock.now();
     var ok = false;
     try {
       if (_disposed) {
@@ -110,7 +110,7 @@ class AqtPathController {
       } else if (!_isForeground()) {
         _log('switch: in background, not switching');
       } else {
-        ok = await (_relayOp ?? _switchToRelay(checkRecovered: true));
+        ok = await (_relayOp ?? _switchToRelay(requestedAt: requestedAt));
       }
     } catch (e) {
       _log('switch: $e');
@@ -140,7 +140,7 @@ class AqtPathController {
     _probeTimer?.cancel();
     unawaited(_probe(escalate: false));
     if (!_relayUnsupported && _relayOp == null) {
-      unawaited(_switchToRelay(checkRecovered: false));
+      unawaited(_switchToRelay());
     }
   }
 
@@ -156,8 +156,10 @@ class AqtPathController {
 
   // ---------------------------------------------------------------- 中继
 
-  Future<bool> _switchToRelay({required bool checkRecovered}) {
-    final op = _doSwitchToRelay(checkRecovered).catchError((Object e) {
+  /// [requestedAt] 非 null（状态机发起的切换）时，落地前检查直连是否已恢复：
+  /// 请求之后收到过任何包（`lastRecvAgeMs` < 距请求的时长）就放弃这次切换。
+  Future<bool> _switchToRelay({DateTime? requestedAt}) {
+    final op = _doSwitchToRelay(requestedAt).catchError((Object e) {
       _log('relay switch: $e');
       return false;
     });
@@ -168,7 +170,7 @@ class AqtPathController {
     return op;
   }
 
-  Future<bool> _doSwitchToRelay(bool checkRecovered) async {
+  Future<bool> _doSwitchToRelay(DateTime? requestedAt) async {
     final daemonPort = _transport.lastPort;
     if (daemonPort == null) {
       _log('relay switch: no daemon port');
@@ -215,7 +217,9 @@ class AqtPathController {
       reject = 'disposed';
     } else if (epoch != _epoch) {
       reject = 'superseded (path already switched)';
-    } else if (checkRecovered && _transport.lastRecvAgeMs < _recoveredMs) {
+    } else if (requestedAt != null &&
+        _transport.lastRecvAgeMs <
+            clock.now().difference(requestedAt).inMilliseconds) {
       reject = 'recovered (traffic is back)';
     } else if (!_transport.setPath('127.0.0.1', relay.localPort)) {
       reject = 'setPath refused';
@@ -254,7 +258,7 @@ class AqtPathController {
     _log('relay dropped while in use');
     if (!_isForeground()) return;
     if (!_relayUnsupported && _relayOp == null) {
-      unawaited(_switchToRelay(checkRecovered: false));
+      unawaited(_switchToRelay());
     }
     _probeTimer?.cancel();
     unawaited(_probe(escalate: false));
