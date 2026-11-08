@@ -2,7 +2,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show ValueListenable, kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:xterm/xterm.dart';
@@ -12,10 +15,12 @@ import '../../ssh/completion_suggestion.dart';
 import '../../ssh/local_shell.dart';
 import '../../ssh/transport/remote_transport.dart';
 import '../../l10n/l10n.dart';
+import '../../util/dlog.dart';
 import 'completion_popup.dart';
 import 'hold_repeat.dart';
 import 'debug_log.dart';
 import 'paste_guard.dart';
+import 'resize_freeze.dart';
 import 'scroll_correction.dart';
 import 'selection_controller.dart';
 import 'selection_geometry.dart';
@@ -124,6 +129,11 @@ class TerminalWidget extends StatefulWidget {
   /// the server's full-screen redraw lands atomically in one vsync frame.
   final VoidCallback? onTransportResize;
 
+  /// SessionTab.resizeOutputTick：远端 resize 之后每批远端输出写进终端就变一次。
+  /// 键盘冻结层（[ResizeFreeze]）靠它判断远端重绘已落屏，在那一帧画完后撤掉
+  /// 冻结快照。为 null 时冻结只靠超时解除。
+  final ValueListenable<int>? resizeOutputSignal;
+
   /// Active command-completion suggestions, rendered as a floating popup
   /// anchored to the cursor (see [CompletionPopup]). Empty list renders
   /// nothing. TerminalScreen owns the debounce/fetch logic
@@ -163,6 +173,7 @@ class TerminalWidget extends StatefulWidget {
     this.getNetworkRtt,
     this.onSgrSent,
     this.onTransportResize,
+    this.resizeOutputSignal,
     this.completions = const [],
     this.onAcceptCompletion,
     this.completionInput = '',
@@ -194,6 +205,25 @@ class TerminalWidgetState extends State<TerminalWidget>
   // IME blip doesn't trigger a false hide-transition that would clear the
   // SHOW chain's _pendingKeyboardCtrlEnd.
   static const double _kbHysteresisPx = 50;
+
+  // ── 键盘弹收冻结（见 resize_freeze.dart）─────────────────────────────────
+  // 包住终端的 RepaintBoundary，用来同步截取 resize 前的旧画面。
+  final _freezeBoundaryKey = GlobalKey();
+  late final ResizeFreeze _resizeFreeze = ResizeFreeze(
+    onChanged: _onResizeFreezeChanged,
+  );
+  ui.Image? _freezeImage;
+  double _freezeImageRatio = 1;
+  // 冻结开始时的网格尺寸：inset 静下来后网格没变 = 这次 inset 变化不会带来
+  // resize（IME 工具条微调 / 小抖动），立刻解冻，别把实时输出挡 1.5 s。
+  int _freezeGridW = 0;
+  int _freezeGridH = 0;
+  // inset 连续变化（一次键盘过渡）期间只冻结一次：中途解冻后剩下的动画帧
+  // 不再重新盖快照。inset 静止 100 ms 视为过渡结束。
+  bool _freezeUsedThisTransition = false;
+  Timer? _freezeInsetQuietTimer;
+  // 冻结期间监听 transport 状态：掉线 / 重连时立即解冻。
+  StreamSubscription<TransportState>? _freezeStateSub;
 
   /// True when running on a plain SSH connection (no Mosh, no QUIC transport).
   /// Extracted to avoid the triple-duplicate `!widget.isMosh && widget.transport == null`
@@ -479,6 +509,7 @@ class TerminalWidgetState extends State<TerminalWidget>
     _selection.addListener(_onSelectionChanged);
     widget.scrollController?.addListener(_onScrollUpdateHandles);
     widget.scrollController?.addListener(_onCompletionScroll);
+    widget.resizeOutputSignal?.addListener(_onResizeOutput);
     if (widget.completions.isNotEmpty) _scheduleCompletionAnchorSync();
     // Restore the mosh watchdog foreground state on (re-)mount so that tabs
     // coming back after a HomeScreen round-trip have the correct suppression.
@@ -515,6 +546,15 @@ class TerminalWidgetState extends State<TerminalWidget>
     // Latch — both observers (didChangeDependencies + didChangeMetrics) hit
     // the same transition; bail when there's no real change.
     if ((inset - prev).abs() < 0.5) return;
+
+    // 键盘动画的第一帧：本地 resize 还没发生（这里在 build / layout 之前），
+    // 先截下当前画面盖上，挡住 alt buffer 截断后的错位帧，直到远端重绘落屏。
+    _maybeBeginResizeFreeze();
+    _freezeInsetQuietTimer?.cancel();
+    _freezeInsetQuietTimer = Timer(
+      const Duration(milliseconds: 100),
+      _onFreezeInsetQuiet,
+    );
 
     // ── Keyboard SHOW transition: inset 0 → > kbHysteresisPx ────────────────
     // Re-arm _keyboardShowHandled here (not only on full hide) so that a
@@ -752,6 +792,17 @@ class TerminalWidgetState extends State<TerminalWidget>
       oldWidget.scrollController?.removeListener(_onCompletionScroll);
       widget.scrollController?.addListener(_onCompletionScroll);
     }
+    if (widget.resizeOutputSignal != oldWidget.resizeOutputSignal) {
+      oldWidget.resizeOutputSignal?.removeListener(_onResizeOutput);
+      widget.resizeOutputSignal?.addListener(_onResizeOutput);
+    }
+    // 冻结快照属于旧 transport / 前台状态，任何一项变化都立即撤掉。
+    if (widget.transport != oldWidget.transport ||
+        widget.shell != oldWidget.shell ||
+        widget.isMosh != oldWidget.isMosh ||
+        !widget.isActive) {
+      _resizeFreeze.cancel();
+    }
     if (!identical(widget.completions, oldWidget.completions)) {
       _completionHiddenByScroll = false;
       if (widget.completions.isNotEmpty) {
@@ -933,6 +984,10 @@ class TerminalWidgetState extends State<TerminalWidget>
     // Notify session so it can open a brief vsync-batching window for the
     // SIGWINCH-triggered server redraw (avoids "top-to-bottom" chunk reveal).
     widget.onTransportResize?.call();
+    // 发出后约 0.8 × RTT 之内到的输出是服务端还没看到新尺寸时产生的，
+    // 不算重绘（RTT 未知按 80 ms）。
+    final rtt = widget.getNetworkRtt?.call() ?? const Duration(milliseconds: 80);
+    _resizeFreeze.remoteResizeSent(gate: rtt * 0.8);
 
     // Proactive viewport correction: after a resize event (keyboard
     // show/hide), xterm.dart can leave scrollPixels pointing into a
@@ -1418,6 +1473,7 @@ class TerminalWidgetState extends State<TerminalWidget>
     if (_activePointers.length == 2) {
       _pinchBaseFontSize = settings.fontSize;
       _pinchBaseDistance = _currentPinchDistance();
+      _resizeFreeze.cancel();
       _scrollAccum = 0; // cancel any in-progress single-finger scroll
       // Pinch overrides single-finger scroll detection.
       _pointerDownPos = null;
@@ -1494,6 +1550,7 @@ class TerminalWidgetState extends State<TerminalWidget>
       // a slightly-drifting tap as a scroll intent.
       if (absDy > 16 && absDy > absDx * 2.5) {
         _scrollIntentDetected = true;
+        _resizeFreeze.cancel(); // 用户要看真画面，别挡着
         _lastScrollTime = DateTime.now(); // B: start cooldown
         // Only dismiss keyboard on scroll when NOT in a TUI (alt-buffer or
         // remoteTuiHint). In TUI mode the scroll goes to SGR wheel → the
@@ -2526,6 +2583,12 @@ class TerminalWidgetState extends State<TerminalWidget>
     _selection.removeListener(_onSelectionChanged);
     widget.scrollController?.removeListener(_onScrollUpdateHandles);
     widget.scrollController?.removeListener(_onCompletionScroll);
+    widget.resizeOutputSignal?.removeListener(_onResizeOutput);
+    _resizeFreeze.dispose();
+    _freezeInsetQuietTimer?.cancel();
+    _freezeStateSub?.cancel();
+    _freezeImage?.dispose();
+    _freezeImage = null;
     _completionAnchor.dispose();
     _sgrFallback?.cancel();
     _sgrInertiaRunning = false;
@@ -2543,6 +2606,96 @@ class TerminalWidgetState extends State<TerminalWidget>
     _handlePositions.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 满足条件时截图并开始冻结：活动 tab、非 mosh（mosh 只出终态帧，本来就不
+  /// 闪）、全屏程序（alt buffer 或 remoteTuiHint；main buffer 的 shell 不闪）、
+  /// 没在双指缩放。截图失败就不冻结 —— 退化为修复前的行为，绝不抛出。
+  void _maybeBeginResizeFreeze() {
+    if (_resizeFreeze.frozen || _freezeUsedThisTransition) return;
+    final eligible = widget.isActive &&
+        !widget.isMosh &&
+        _pinchBaseDistance == 0 &&
+        (widget.terminal.isUsingAltBuffer || widget.remoteTuiHint);
+    if (!eligible) return;
+    final image = _captureTerminalPicture();
+    if (image == null) return;
+    _freezeImage?.dispose();
+    _freezeImage = image;
+    if (!_resizeFreeze.begin(eligible: true)) {
+      image.dispose();
+      _freezeImage = null;
+      return;
+    }
+    _freezeUsedThisTransition = true;
+    _freezeGridW = widget.terminal.viewWidth;
+    _freezeGridH = widget.terminal.viewHeight;
+    _freezeStateSub?.cancel();
+    _freezeStateSub = widget.transport?.stateStream.listen((s) {
+      if (s != TransportState.connected) _resizeFreeze.cancel();
+    });
+  }
+
+  /// inset 停止变化 100 ms：本次键盘过渡结束。若仍冻结而网格和冻结开始时
+  /// 一样，说明这次 inset 变化根本不会让远端重绘，立即解冻。
+  ///
+  /// 不看 `_resizeDebounce` 是否在排队：xterm 的 onResize 对**每一次**像素级
+  /// 布局变化都触发（在网格相等的早退之前），1 px 的 inset 抖动也会排一个
+  /// 防抖，它发出去的是同尺寸 resize，远端不会重绘。
+  void _onFreezeInsetQuiet() {
+    _freezeInsetQuietTimer = null;
+    _freezeUsedThisTransition = false;
+    if (!mounted || !_resizeFreeze.frozen) return;
+    if (widget.terminal.viewWidth == _freezeGridW &&
+        widget.terminal.viewHeight == _freezeGridH) {
+      _resizeFreeze.cancel();
+    }
+  }
+
+  /// 同步截取终端当前（resize 前）的画面。这里在 build / layout 之前运行，
+  /// RepaintBoundary 的 layer 还是上一帧画好的那张。
+  ui.Image? _captureTerminalPicture() {
+    final ro = _freezeBoundaryKey.currentContext?.findRenderObject();
+    if (ro is! RenderRepaintBoundary || !ro.hasSize || ro.size.isEmpty) {
+      return null;
+    }
+    // toImageSync 在 debug 下断言 !debugNeedsPaint（上一帧之后又有输出标脏）。
+    // release 下截到的是上一帧的 layer，正是想要的旧画面。
+    if (kDebugMode && ro.debugNeedsPaint) {
+      dlog('ResizeFreeze', 'skip: boundary needs paint');
+      return null;
+    }
+    try {
+      final ratio = MediaQuery.devicePixelRatioOf(context);
+      final image = ro.toImageSync(pixelRatio: ratio);
+      _freezeImageRatio = ratio;
+      return image;
+    } catch (e) {
+      dlog('ResizeFreeze', 'capture failed: $e');
+      return null;
+    }
+  }
+
+  void _onResizeFreezeChanged(bool frozen) {
+    if (!frozen) {
+      _freezeStateSub?.cancel();
+      _freezeStateSub = null;
+      // RawImage 自己持有 clone，这里可以立刻释放我们这份句柄。
+      _freezeImage?.dispose();
+      _freezeImage = null;
+    }
+    if (mounted) setState(() {});
+  }
+
+  /// 远端输出已写进终端（SessionTab 在 flush 里通知）。等这一帧画完再解冻，
+  /// 撤掉快照时底下已经是完整的新画面。
+  void _onResizeOutput() {
+    if (!_resizeFreeze.frozen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _resizeFreeze.outputRendered();
+    });
+    // 写终端本身会排帧；这里兜底，保证 post-frame 一定有帧可跑。
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   /// Authoritative keyboard-inset observer (raw, bypasses MediaQuery).
@@ -2721,7 +2874,18 @@ class TerminalWidgetState extends State<TerminalWidget>
       fit: StackFit.expand,
       clipBehavior: Clip.none,
       children: [
-        Positioned.fill(child: listener),
+        Positioned.fill(
+          child: RepaintBoundary(key: _freezeBoundaryKey, child: listener),
+        ),
+        if (_freezeImage != null && _resizeFreeze.frozen)
+          Positioned.fill(
+            child: ResizeFreezeOverlay(
+              image: _freezeImage!,
+              pixelRatio: _freezeImageRatio,
+              background: AppTerminalThemes.of(settings.terminalTheme)
+                  .background,
+            ),
+          ),
         if (_longPressMenuAt != null)
           TerminalFloatingMenu(
             anchor: Rect.fromCenter(

@@ -4,7 +4,7 @@ import '../util/dlog.dart';
 import 'dart:convert';
 import 'dart:typed_data' show Uint8List;
 import 'package:flutter/foundation.dart'
-    show visibleForTesting, ChangeNotifier;
+    show visibleForTesting, ChangeNotifier, ValueNotifier;
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
@@ -813,6 +813,12 @@ class SessionTab {
   int resizeBurstFirstMs = -1;
   int resizeBurstLastMs = -1;
 
+  /// 远端 resize（[onTransportResized]）之后，每有一批远端输出**已写进终端**
+  /// 就 +1（只在 [_resizeBurstWindowMs] 窗口内）。TerminalWidget 的键盘冻结层
+  /// 监听它：收到即在当帧画完后撤掉冻结快照，露出 tmux / vim 重绘后的新画面。
+  /// 值本身没有含义，只用作通知。
+  final ValueNotifier<int> resizeOutputTick = ValueNotifier<int>(0);
+
   // Post-output refresh: fire tmux refresh-client 800 ms after the LAST output
   // chunk, so the refresh never races with active streaming.  Debounce by
   // cancelling + restarting on every flush.  SSH+tmux only — mosh self-corrects.
@@ -1237,6 +1243,7 @@ class SessionTab {
       resizeBurstBytes += text.length;
       if (resizeBurstFirstMs < 0) resizeBurstFirstMs = sinceResize;
       resizeBurstLastMs = sinceResize;
+      if (text.isNotEmpty) resizeOutputTick.value++;
     }
     // ⑤ 段终点：快照写进终端之后的**首帧**。
     //

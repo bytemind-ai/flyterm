@@ -3185,6 +3185,7 @@ class _TerminalScreenState extends State<TerminalScreen>
         getNetworkRtt: () => t.networkStability.smoothedRtt,
         onSgrSent: (_) => t.recordSgrSend(),
         onTransportResize: t.onTransportResized,
+        resizeOutputSignal: t.resizeOutputTick,
         // Completion popup only ever applies to the active tab — other tabs
         // stay mounted (Offstage) behind the IndexedStack but must not show
         // a stale/foreign suggestion list.
