@@ -67,8 +67,11 @@ pub struct SessionHandle {
     /// change (Wi-Fi ↔ cellular). Dropping this would tear down the I/O
     /// driver and kill the connection.
     pub endpoint: Arc<RwLock<Option<quinn::Endpoint>>>,
-    /// Routed UDP socket under `endpoint` (real-destination switching).
-    pub routed: std::sync::Mutex<Option<Arc<crate::routed_socket::RoutedSocket>>>,
+    /// Endpoint + the routed socket currently under it, always written and
+    /// read together (rebind / set_path must never see a mismatched pair).
+    /// Lock order: path mutex -> RoutedSocket route lock -> quinn endpoint lock;
+    /// never `.await` while holding it.
+    pub path: std::sync::Mutex<Option<RoutedPath>>,
     /// Active QUIC connection (set after QUIC handshake completes)
     pub conn: Arc<RwLock<Option<quinn::Connection>>>,
     /// Write half of the control stream (set after HELLO handshake)
@@ -156,7 +159,7 @@ impl SessionHandle {
                 event_tx: tx,
                 conn_state: Arc::new(Mutex::new(ConnState::Connecting)),
                 endpoint: Arc::new(RwLock::new(None)),
-                routed: std::sync::Mutex::new(None),
+                path: std::sync::Mutex::new(None),
                 conn: Arc::new(RwLock::new(None)),
                 ctrl_tx: Arc::new(Mutex::new(None)),
                 ctrl_rx: Arc::new(Mutex::new(None)),
@@ -206,4 +209,11 @@ mod tests {
         // Dart side (aqt_ffi.dart AqtEventKind) reads this u8 directly.
         assert_eq!(AqtEventKind::Notify as u8, 8);
     }
+}
+
+/// A client endpoint paired with the [`RoutedSocket`] currently bound to it.
+#[derive(Clone)]
+pub struct RoutedPath {
+    pub endpoint: quinn::Endpoint,
+    pub socket: Arc<crate::routed_socket::RoutedSocket>,
 }

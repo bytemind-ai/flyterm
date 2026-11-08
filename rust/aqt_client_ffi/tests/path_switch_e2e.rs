@@ -237,6 +237,8 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
     let mut stage = 0;
     let (mut a2d_0, mut d2a_0) = (0, 0);
     let (mut a2d_1, mut d2a_1) = (0, 0);
+    let (mut lines_2, mut lines_3) = (0, 0);
+    let (mut a2d_3, mut d2a_3) = (0, 0);
     let text = read_bulk(&mut pty_rx, "@@DONE@@", 30, |lines| {
         let (a, b) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
         if stage == 0 && lines >= 500 {
@@ -247,11 +249,30 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
         } else if stage == 1 && lines >= 1200 && a - a2d_0 >= 5 && b - d2a_0 >= 20 {
             routed.set_target(direct);
             (a2d_1, d2a_1) = (a, b);
+            lines_2 = lines;
             stage = 2;
+        } else if stage == 2 && lines >= lines_2 + 200 {
+            // In-flight relay packets have drained; from here on the pump
+            // must stay (nearly) silent while the rest of the bulk arrives.
+            (a2d_3, d2a_3) = (a, b);
+            lines_3 = lines;
+            stage = 3;
         }
     })
     .await;
-    assert_eq!(stage, 2, "bulk finished before both switches happened");
+    assert_eq!(stage, 3, "bulk finished before all stages happened");
+    let (a_end, b_end) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
+    assert!(
+        N - lines_3 >= 200,
+        "too few lines left after switch-back: {}",
+        N - lines_3
+    );
+    assert!(
+        a_end - a2d_3 <= 3 && b_end - d2a_3 <= 3,
+        "pump still carrying traffic after switching back: a2d +{} d2a +{}",
+        a_end - a2d_3,
+        b_end - d2a_3
+    );
     assert!(
         text.contains("@@DONE@@"),
         "sentinel missing ({} bytes)",
@@ -277,16 +298,6 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
         "daemon->app via relay: {}",
         d2a_1 - d2a_0
     );
-    // ...and after switching back the pump goes quiet (direct resumed).
-    tokio::time::sleep(Duration::from_millis(300)).await;
-    let (a_end, b_end) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
-    tokio::time::sleep(Duration::from_millis(500)).await;
-    assert_eq!(
-        (a_end, b_end),
-        (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst)),
-        "pump still carrying traffic after switching back"
-    );
-
     // Same connection, never resumed; the session is still in the store.
     assert!(conn.close_reason().is_none(), "{:?}", conn.close_reason());
     assert!(

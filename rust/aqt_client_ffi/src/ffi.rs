@@ -19,7 +19,7 @@ use aqt_protocol::{
 
 use crate::client::{connect, make_routed_endpoint};
 use crate::error::AqtError;
-use crate::handle::{AqtEvent, AqtEventKind, ConnState, SessionHandle, TabHandle};
+use crate::handle::{AqtEvent, AqtEventKind, ConnState, RoutedPath, SessionHandle, TabHandle};
 use crate::runtime::RUNTIME;
 
 /// Connection parameters struct passed from Dart.
@@ -489,9 +489,10 @@ pub unsafe extern "C" fn aqt_connect(
                         Ok(conn) => {
                             // Store endpoint + connection. Endpoint must
                             // outlive any aqt_rebind() call (migration).
-                            // routed first: aqt_rebind reads endpoint, then
-                            // routed, so seeing the endpoint implies routed.
-                            *h.routed.lock().unwrap() = Some(routed);
+                            *h.path.lock().unwrap() = Some(RoutedPath {
+                                endpoint: ep.clone(),
+                                socket: routed,
+                            });
                             *h.endpoint.write().await = Some(ep.clone());
                             *h.conn.write().await = Some(conn.clone());
                             *h.conn_state.lock().await = ConnState::Connected;
@@ -1295,31 +1296,32 @@ pub unsafe extern "C" fn aqt_rebind(handle: *mut c_void) -> c_int {
         RUNTIME.dispatch(move |rt| {
             rt.spawn(async move {
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
-                let ep_opt = h.endpoint.read().await.clone();
-                // Hold the `routed` lock across copy-route -> rebind -> store
-                // (all synchronous, no .await): a concurrent aqt_set_path
-                // then either lands before (copied into the fresh socket) or
-                // after (applied to the fresh socket), never lost.
+                // Endpoint and socket come from one guard (RoutedPath), held
+                // across copy-route -> rebind -> store with no .await. A
+                // concurrent aqt_set_path (which sets the target under the
+                // same guard) therefore lands entirely before the route copy
+                // or entirely on the fresh socket, and a resume can never
+                // pair an old endpoint with a new socket.
                 let ok = {
-                    let mut guard = h.routed.lock().unwrap();
-                    let (Some(ep), Some(old)) = (ep_opt, guard.clone()) else {
+                    let mut guard = h.path.lock().unwrap();
+                    let Some(path) = guard.as_mut() else {
                         tracing::warn!("aqt_rebind: no endpoint stored — skipping");
                         return;
                     };
                     // Fresh socket on the OS's current default route; the
                     // destination (route) is inherited unchanged.
-                    match old.with_fresh_socket() {
+                    match path.socket.with_fresh_socket() {
                         Err(e) => {
                             tracing::warn!("aqt_rebind: fresh socket failed: {e}");
                             false
                         }
-                        Ok(fresh) => match ep.rebind_abstract(fresh.clone()) {
+                        Ok(fresh) => match path.endpoint.rebind_abstract(fresh.clone()) {
                             Err(e) => {
                                 tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
                                 false
                             }
                             Ok(()) => {
-                                *guard = Some(fresh);
+                                path.socket = fresh;
                                 true
                             }
                         },
@@ -1366,10 +1368,15 @@ pub unsafe extern "C" fn aqt_set_path(handle: *mut c_void, ip: *const c_char, po
             Err(_) => return AqtError::InvalidArg.as_i32(),
         };
         let h = &*(handle as *const SessionHandle);
-        let Some(routed) = h.routed.lock().unwrap().clone() else {
-            return AqtError::NotConnected.as_i32();
-        };
-        routed.set_target(SocketAddr::new(ip_addr, port));
+        {
+            // set_target under the path guard so a concurrent rebind cannot
+            // swap sockets in between and strand the new target.
+            let guard = h.path.lock().unwrap();
+            let Some(path) = guard.as_ref() else {
+                return AqtError::NotConnected.as_i32();
+            };
+            path.socket.set_target(SocketAddr::new(ip_addr, port));
+        }
         // Wake the new path (same as aqt_rebind): a datagram makes the peer
         // observe the new route promptly.
         let handle_ptr = handle as usize;
@@ -1855,8 +1862,10 @@ async fn do_quic_resume(
     tracing::debug!("aqt_resume: 0-RTT accepted={}", zero_rtt_accepted);
 
     // Store endpoint + connection. Endpoint must outlive aqt_rebind().
-    // routed first (see aqt_connect): endpoint visible implies routed set.
-    *h.routed.lock().unwrap() = Some(routed);
+    *h.path.lock().unwrap() = Some(RoutedPath {
+        endpoint: ep.clone(),
+        socket: routed,
+    });
     *h.endpoint.write().await = Some(ep.clone());
     *h.conn.write().await = Some(conn.clone());
     *h.conn_state.lock().await = ConnState::Connected;
