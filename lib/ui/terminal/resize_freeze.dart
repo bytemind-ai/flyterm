@@ -14,9 +14,11 @@ import 'package:flutter/widgets.dart';
 ///
 /// 做法：resize 开始时盖一张旧画面快照，真终端在底下照常 resize、收数据，
 /// 等以下任一条件满足就撤掉：
-///   1. 远端 resize 已发出（[remoteResizeSent]）之后又有远端输出落屏
-///      （[outputRendered]，调用方保证是在那一帧画完之后调）；
-///   2. 远端 resize 发出后 [remoteTimeout] 内没有任何输出；
+///   1. **最近一次**远端 resize（[remoteResizeSent]）发出、且过了它的 `gate`
+///      之后，又有远端输出落屏（[outputRendered]，调用方保证在那一帧画完之后
+///      调）。gate 约 0.8 × RTT：在这之前到的输出是服务端还没看到新尺寸时就
+///      发出的（spinner、tmux 状态栏时钟、动画中按键的回显），不是重绘；
+///   2. 最近一次远端 resize 发出后 [remoteTimeout] 内没有可算数的输出；
 ///   3. 冻结开始后 [maxHold]（硬上限，不会被推迟）；
 ///   4. 调用方主动 [cancel]（切 tab、换 transport、用户滚动、销毁）。
 class ResizeFreeze {
@@ -32,9 +34,11 @@ class ResizeFreeze {
 
   bool _frozen = false;
   bool _remoteSent = false;
+  bool _gateOpen = false;
   bool _disposed = false;
   Timer? _maxHoldTimer;
   Timer? _remoteTimer;
+  Timer? _gateTimer;
 
   bool get frozen => _frozen;
 
@@ -44,24 +48,34 @@ class ResizeFreeze {
     if (_disposed || _frozen || !eligible) return false;
     _frozen = true;
     _remoteSent = false;
+    _gateOpen = false;
     _maxHoldTimer = Timer(maxHold, _release);
     onChanged(true);
     return true;
   }
 
-  /// 去抖后的远端 resize 已发出。之后的第一次输出落屏即可解冻；
-  /// 一直没输出则 [remoteTimeout] 后解冻。
-  void remoteResizeSent() {
+  /// 远端 resize 已发出。[gate] 之后的第一次输出落屏即可解冻；一直没输出则
+  /// [remoteTimeout] 后解冻。每次调用都以这一次为准（门限和无输出计时都重新
+  /// 开始，键盘动画中途 fallback 发出的中间尺寸不算数），但不推迟 [maxHold]。
+  void remoteResizeSent({Duration gate = Duration.zero}) {
     if (!_frozen) return;
     _remoteSent = true;
+    _gateTimer?.cancel();
+    _gateTimer = null;
+    if (gate <= Duration.zero) {
+      _gateOpen = true;
+    } else {
+      _gateOpen = false;
+      _gateTimer = Timer(gate, () => _gateOpen = true);
+    }
     _remoteTimer?.cancel();
     _remoteTimer = Timer(remoteTimeout, _release);
   }
 
-  /// 远端输出已经写进终端且那一帧已画完。远端 resize 发出前的输出是旧尺寸
-  /// 下的数据，不代表重绘到了，忽略。
+  /// 远端输出已经写进终端且那一帧已画完。最近一次远端 resize 之前、或其门限
+  /// 之内的输出是旧尺寸下的数据，不代表重绘到了，忽略。
   void outputRendered() {
-    if (_frozen && _remoteSent) _release();
+    if (_frozen && _remoteSent && _gateOpen) _release();
   }
 
   void cancel() => _release();
@@ -76,6 +90,7 @@ class ResizeFreeze {
     if (!_frozen) return;
     _frozen = false;
     _remoteSent = false;
+    _gateOpen = false;
     _clearTimers();
     onChanged(false);
   }
@@ -85,6 +100,8 @@ class ResizeFreeze {
     _maxHoldTimer = null;
     _remoteTimer?.cancel();
     _remoteTimer = null;
+    _gateTimer?.cancel();
+    _gateTimer = null;
   }
 }
 

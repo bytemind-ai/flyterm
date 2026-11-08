@@ -214,6 +214,16 @@ class TerminalWidgetState extends State<TerminalWidget>
   );
   ui.Image? _freezeImage;
   double _freezeImageRatio = 1;
+  // 冻结开始时的网格尺寸：inset 静下来后网格没变 = 这次 inset 变化不会带来
+  // resize（IME 工具条微调 / 小抖动），立刻解冻，别把实时输出挡 1.5 s。
+  int _freezeGridW = 0;
+  int _freezeGridH = 0;
+  // inset 连续变化（一次键盘过渡）期间只冻结一次：中途解冻后剩下的动画帧
+  // 不再重新盖快照。inset 静止 100 ms 视为过渡结束。
+  bool _freezeUsedThisTransition = false;
+  Timer? _freezeInsetQuietTimer;
+  // 冻结期间监听 transport 状态：掉线 / 重连时立即解冻。
+  StreamSubscription<TransportState>? _freezeStateSub;
 
   /// True when running on a plain SSH connection (no Mosh, no QUIC transport).
   /// Extracted to avoid the triple-duplicate `!widget.isMosh && widget.transport == null`
@@ -540,6 +550,11 @@ class TerminalWidgetState extends State<TerminalWidget>
     // 键盘动画的第一帧：本地 resize 还没发生（这里在 build / layout 之前），
     // 先截下当前画面盖上，挡住 alt buffer 截断后的错位帧，直到远端重绘落屏。
     _maybeBeginResizeFreeze();
+    _freezeInsetQuietTimer?.cancel();
+    _freezeInsetQuietTimer = Timer(
+      const Duration(milliseconds: 100),
+      _onFreezeInsetQuiet,
+    );
 
     // ── Keyboard SHOW transition: inset 0 → > kbHysteresisPx ────────────────
     // Re-arm _keyboardShowHandled here (not only on full hide) so that a
@@ -969,7 +984,10 @@ class TerminalWidgetState extends State<TerminalWidget>
     // Notify session so it can open a brief vsync-batching window for the
     // SIGWINCH-triggered server redraw (avoids "top-to-bottom" chunk reveal).
     widget.onTransportResize?.call();
-    _resizeFreeze.remoteResizeSent();
+    // 发出后约 0.8 × RTT 之内到的输出是服务端还没看到新尺寸时产生的，
+    // 不算重绘（RTT 未知按 80 ms）。
+    final rtt = widget.getNetworkRtt?.call() ?? const Duration(milliseconds: 80);
+    _resizeFreeze.remoteResizeSent(gate: rtt * 0.8);
 
     // Proactive viewport correction: after a resize event (keyboard
     // show/hide), xterm.dart can leave scrollPixels pointing into a
@@ -2567,6 +2585,8 @@ class TerminalWidgetState extends State<TerminalWidget>
     widget.scrollController?.removeListener(_onCompletionScroll);
     widget.resizeOutputSignal?.removeListener(_onResizeOutput);
     _resizeFreeze.dispose();
+    _freezeInsetQuietTimer?.cancel();
+    _freezeStateSub?.cancel();
     _freezeImage?.dispose();
     _freezeImage = null;
     _completionAnchor.dispose();
@@ -2592,7 +2612,7 @@ class TerminalWidgetState extends State<TerminalWidget>
   /// 闪）、全屏程序（alt buffer 或 remoteTuiHint；main buffer 的 shell 不闪）、
   /// 没在双指缩放。截图失败就不冻结 —— 退化为修复前的行为，绝不抛出。
   void _maybeBeginResizeFreeze() {
-    if (_resizeFreeze.frozen) return;
+    if (_resizeFreeze.frozen || _freezeUsedThisTransition) return;
     final eligible = widget.isActive &&
         !widget.isMosh &&
         _pinchBaseDistance == 0 &&
@@ -2602,7 +2622,34 @@ class TerminalWidgetState extends State<TerminalWidget>
     if (image == null) return;
     _freezeImage?.dispose();
     _freezeImage = image;
-    _resizeFreeze.begin(eligible: true);
+    if (!_resizeFreeze.begin(eligible: true)) {
+      image.dispose();
+      _freezeImage = null;
+      return;
+    }
+    _freezeUsedThisTransition = true;
+    _freezeGridW = widget.terminal.viewWidth;
+    _freezeGridH = widget.terminal.viewHeight;
+    _freezeStateSub?.cancel();
+    _freezeStateSub = widget.transport?.stateStream.listen((s) {
+      if (s != TransportState.connected) _resizeFreeze.cancel();
+    });
+  }
+
+  /// inset 停止变化 100 ms：本次键盘过渡结束。若仍冻结而网格和冻结开始时
+  /// 一样，说明这次 inset 变化根本不会让远端重绘，立即解冻。
+  ///
+  /// 不看 `_resizeDebounce` 是否在排队：xterm 的 onResize 对**每一次**像素级
+  /// 布局变化都触发（在网格相等的早退之前），1 px 的 inset 抖动也会排一个
+  /// 防抖，它发出去的是同尺寸 resize，远端不会重绘。
+  void _onFreezeInsetQuiet() {
+    _freezeInsetQuietTimer = null;
+    _freezeUsedThisTransition = false;
+    if (!mounted || !_resizeFreeze.frozen) return;
+    if (widget.terminal.viewWidth == _freezeGridW &&
+        widget.terminal.viewHeight == _freezeGridH) {
+      _resizeFreeze.cancel();
+    }
   }
 
   /// 同步截取终端当前（resize 前）的画面。这里在 build / layout 之前运行，
@@ -2631,6 +2678,8 @@ class TerminalWidgetState extends State<TerminalWidget>
 
   void _onResizeFreezeChanged(bool frozen) {
     if (!frozen) {
+      _freezeStateSub?.cancel();
+      _freezeStateSub = null;
       // RawImage 自己持有 clone，这里可以立刻释放我们这份句柄。
       _freezeImage?.dispose();
       _freezeImage = null;

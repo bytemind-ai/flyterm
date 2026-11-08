@@ -164,4 +164,55 @@ void main() {
       expect(f.begin(eligible: true), isFalse);
     });
   });
+
+  // ── fix round 1：RTT 门限 + 多次远端 resize ──────────────────────────────
+
+  test('门限内的输出（服务端还没看到 resize 时产生的）不解冻，门限后才解冻', () {
+    fakeAsync((async) {
+      final f = make();
+      f.begin(eligible: true);
+      f.remoteResizeSent(gate: const Duration(milliseconds: 100));
+      async.elapse(const Duration(milliseconds: 50));
+      f.outputRendered();
+      expect(f.frozen, isTrue, reason: 'spinner / 时钟 / 回显是旧尺寸的数据');
+      async.elapse(const Duration(milliseconds: 50));
+      f.outputRendered();
+      expect(f.frozen, isFalse);
+      expect(changes, [true, false]);
+      f.dispose();
+    });
+  });
+
+  test('两次远端 resize：只认最新一次之后过了门限的输出', () {
+    fakeAsync((async) {
+      final f = make();
+      f.begin(eligible: true);
+      f.remoteResizeSent(gate: const Duration(milliseconds: 100));
+      async.elapse(const Duration(milliseconds: 300));
+      // 第二次 resize（open-fallback 发出中间尺寸后，动画结束的真尺寸）
+      f.remoteResizeSent(gate: const Duration(milliseconds: 100));
+      async.elapse(const Duration(milliseconds: 50));
+      f.outputRendered();
+      expect(f.frozen, isTrue, reason: '这是第一次 resize 的重绘');
+      async.elapse(const Duration(milliseconds: 60));
+      f.outputRendered();
+      expect(f.frozen, isFalse);
+      f.dispose();
+    });
+  });
+
+  test('每次 remoteResizeSent 重置 500 ms 无输出计时（仍受 1500 ms 上限）', () {
+    fakeAsync((async) {
+      final f = make();
+      f.begin(eligible: true);
+      f.remoteResizeSent();
+      async.elapse(const Duration(milliseconds: 400));
+      f.remoteResizeSent();
+      async.elapse(const Duration(milliseconds: 400));
+      expect(f.frozen, isTrue);
+      async.elapse(const Duration(milliseconds: 100));
+      expect(f.frozen, isFalse);
+      f.dispose();
+    });
+  });
 }
