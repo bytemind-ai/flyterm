@@ -3409,6 +3409,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aqtRelayUnsupported => '服务端版本过旧，不支持 SSH 通道，请升级。';
 
   @override
+  String aqtServerUpgradeFailed(String error) {
+    return '无法更新此服务器上的 FlyTerm Server：$error';
+  }
+
+  @override
   String aqtRelayStartFailed(String error) {
     return '无法建立 SSH 通道：$error';
   }

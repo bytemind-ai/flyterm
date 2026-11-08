@@ -3537,6 +3537,11 @@ class AppLocalizationsEn extends AppLocalizations {
       'The server\'s flyterm-server is too old for the SSH channel. Please upgrade it.';
 
   @override
+  String aqtServerUpgradeFailed(String error) {
+    return 'Couldn\'t update FlyTerm Server on this host: $error';
+  }
+
+  @override
   String aqtRelayStartFailed(String error) {
     return 'Could not set up the SSH channel: $error';
   }

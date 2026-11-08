@@ -1694,5 +1694,6 @@
   "aqtViaSshDesc": "跳过 UDP 直连，适合只开放 22 端口的服务器或封了 UDP 的网络；延迟略高。",
   "aqtRouteViaSshTooltip": "QUIC · 经由 SSH 通道",
   "aqtRelayUnsupported": "服务端版本过旧，不支持 SSH 通道，请升级。",
+  "aqtServerUpgradeFailed": "无法更新此服务器上的 FlyTerm Server：{error}",
   "aqtRelayStartFailed": "无法建立 SSH 通道：{error}"
 }
