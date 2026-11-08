@@ -1,127 +1,138 @@
+<div align="center">
+
 # FlyTerm
 
 **Your coding agent doesn't stop when you close the laptop.**
 
-[English] · [中文](./README.zh-CN.md)
+A coding agent that lives on your phone and works on your servers —
+over SSH, Mosh, or a QUIC connection that doesn't drop.
 
-FlyTerm is a coding agent that lives on your phone and works on your servers.
-It connects over SSH, Mosh, or its own QUIC transport, runs tasks that survive
-you locking the screen, and sends you a push notification when it needs a
-decision.
+[![Release](https://img.shields.io/github/v/release/bytemind-ai/flyterm)](https://github.com/bytemind-ai/flyterm/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](./LICENSE)
+![Platform](https://img.shields.io/badge/platform-Android-3ddc84)
 
-> **Screenshot / demo GIF goes here.** Record the on-call flow: a lock-screen
-> notification reading `agent wants to run systemctl restart nginx — approve?`,
-> tapping through to see the command in context, approving, and the agent
-> carrying on. That single clip demonstrates remote jobs, push approval,
-> multi-host, and knowledge capture at once.
+[**Download APK**](https://github.com/bytemind-ai/flyterm/releases/latest) ·
+[Get started](#get-started) ·
+[中文](./README.zh-CN.md)
 
-## Why this isn't just a terminal with a chat box
+<img src="docs/images/hero.gif" alt="A notification asks to approve systemctl restart nginx; tapping through shows the command, the user approves, and the agent carries on" width="320">
 
-Three things are structural, not cosmetic — desktop agents are not built this
-way and have little reason to change:
+</div>
 
-**Tasks live on the server, not in the client.** `run_background` drops the job
-into `~/.flyterm/jobs/` on the target host; `check_job` and `list_jobs` come
-back for it later. Lock your phone, lose signal, let the OS kill the app — the
-job keeps running. A desktop agent's task is tied to the terminal process it
-was started from.
+---
 
-**Approvals arrive as push notifications.** When the agent needs sign-off it
-notifies you, with foreground suppression so it stays quiet while you're
-already looking at that session. This is a place where a phone is *better*
-than a desktop, not a compromise: desktop agents need you watching the terminal
-to notice they asked a question.
+## What it does
 
-**Multiple hosts are first-class.** `bash` and `read_file` take a `server`
-argument; there's `copy_between_servers` and `list_servers`. One session can
-reach across your fleet. Most coding agents model a single machine and a single
-working directory.
+### Tasks keep running when you walk away
 
-Two more that follow from the above: the agent can reconfigure the app itself
-(add a server entry, open a tunnel, generate an SSH key, change the layout),
-and knowledge persists app-side rather than per-directory — reusable skills
-travel across hosts, per-machine notes stay with the machine.
+Ask the agent to run a migration, a build, a long test suite. The job runs on
+the server, not in the app: lock your phone, lose signal, let Android kill
+FlyTerm — it keeps going. Come back later and pick up where it is.
 
-## Everything else
+<img src="docs/images/jobs.png" alt="The agent's job list: a build still running, a test run finished, output one tap away" width="300">
 
-**Your session survives the subway.** Mosh-style state synchronisation plus a
-QUIC transport means switching from Wi-Fi to 5G, or going through a tunnel,
-doesn't drop your work.
+### It asks before it acts — and tells you when it's waiting
 
-**Built for agent sessions on a small screen.** Scrollback renders locally with
-zero network round-trips, so scrolling back through what the agent did is
-instant. TUI applications are detected and scroll handling switches to match
-them. Flicker is suppressed. Long-press backspace repeats. CJK double-width
-cells render correctly. These are the problems you only find by actually
-running an agent on a phone.
+When the agent wants to run something that needs your sign-off, you get a
+notification. Tap it, see the exact command and why, approve or decline. You
+don't have to be watching a terminal to notice it's waiting — and it stays
+quiet while you're already looking at that session.
 
-**Auditable.** This is an SSH client — you hand it credentials to production
-machines. The source is open and the protocol implementations are readable.
-See [SECURITY.md](./SECURITY.md) for the threat model, including what has *not*
-been audited.
+Running Claude Code or Codex on the server? Hook them up to `flyterm notify`
+and they can reach your phone too — straight from your server, with no
+third-party relay or account ([how](./docs/agent-notifications.md)).
 
-**The usual terminal things**, because you still need them: SFTP, SSH key
-management (Ed25519 and RSA 4096), jump-host chaining, port forwarding,
-split panes and a floating window, a fully programmable on-screen key bar,
-tmux integration, and 10 colour themes.
+<img src="docs/images/approve.png" alt="An approval prompt showing the exact command and the conversation that led to it" width="300">
 
-## Install
+### One conversation, your whole fleet
 
-Grab the APK from [Releases](https://github.com/bytemind-ai/flyterm/releases),
-or build it yourself (below). Every feature is free; there are no in-app
-purchases.
+"Compare the nginx config on web-1 and web-2." "Copy the build from the CI box
+to staging." The agent runs commands, reads files and moves files across every
+server you've added, in a single session — not just the one you happened to
+connect to.
 
-## Build
+<img src="docs/images/multi-host.png" alt="The agent comparing configuration across two servers in one reply" width="300">
 
-Requires Flutter 3.47.2 (Dart 3.13.2), JDK 17, and the Rust 1.99 toolchain.
-Full setup in [CONTRIBUTING.md](./CONTRIBUTING.md).
+It also remembers what it learns: reusable skills travel with you across
+servers, and per-machine notes stay with the machine they describe. It can even
+set FlyTerm up for you — add a server, open a tunnel, generate an SSH key.
+
+## A terminal that doesn't drop
+
+Under the agent is a full terminal, built for the way phones actually lose
+connections.
+
+- **Switch networks, keep your session.** Wi-Fi to 5G, into a tunnel and out:
+  FlyTerm's QUIC connection moves with you instead of reconnecting.
+- **UDP blocked? It still works.** On networks that block UDP — hotel Wi-Fi,
+  corporate VPNs, servers with only port 22 open — FlyTerm carries the same
+  connection through SSH, and moves back to UDP on its own when it can. No
+  setting to flip, no reconnect.
+- **Mosh too**, with local echo for typing on slow links.
+- **Made for a small screen.** Scrollback is local, so scrolling back through
+  what the agent did is instant. A fully programmable key bar, split panes and
+  a floating window, tmux integration, correct CJK rendering, 10 colour themes.
+
+<img src="docs/images/terminal.png" alt="tmux running in FlyTerm with the custom key bar above the keyboard" width="300">
+
+## Get started
+
+1. **Install** the APK from [Releases](https://github.com/bytemind-ai/flyterm/releases/latest)
+   (Android 7.0 or later, arm64). Every feature is free — no subscription, no
+   in-app purchases.
+2. **Add a server** with a password or an SSH key. For the QUIC connection,
+   FlyTerm installs its small server component on the host the first time you
+   connect ([what it installs](./docs/user/quic-setup.md)).
+3. **Bring your own model.** Add an API key for Anthropic, OpenAI, Gemini or
+   OpenRouter — or point it at a local Ollama.
+
+## Everything in one place
+
+| | |
+|---|---|
+| **Connect** | SSH · Mosh · QUIC with seamless network switching and SSH fallback · jump hosts · port forwarding |
+| **Terminal** | tmux integration · split panes · floating window · programmable key bar · 10 themes · CJK |
+| **Files** | SFTP browser · upload and download over the live session |
+| **Agent** | background jobs · approvals by notification · multi-server tools · skills and per-host notes |
+| **Keys** | Ed25519 and RSA 4096 generation · keys stay on the device |
+
+## Privacy and security
+
+- **Open source, end to end.** You hand an SSH client the keys to production
+  machines; you should be able to read it. The protocol implementations are
+  documented in [docs/protocols/](./docs/protocols/).
+- **Your credentials stay on your phone**, in the platform's secure storage.
+- **No telemetry in builds from source.** Crash reporting only exists when a
+  build is compiled with a `SENTRY_DSN`, which open-source builds never are.
+  Store builds report crashes with hostnames hashed and usernames reduced to a
+  length.
+- Threat model and how to report a vulnerability: [SECURITY.md](./SECURITY.md).
+
+## Build from source
+
+You need Flutter, a Rust toolchain and the Android SDK — the exact versions and
+every step are in [CONTRIBUTING.md](./CONTRIBUTING.md). Once they're installed:
 
 ```bash
-flutter pub get
-flutter gen-l10n
-flutter test
 scripts/build_apk.sh
 ```
 
-Output: `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
-
-If `flutter` isn't on your `PATH` at the required version, point the script at
-it: `export FLYTERM_FLUTTER=/path/to/flutter/bin/flutter`.
-
-**Signing.** A release APK normally needs credentials in
-`android/key.properties` (that file and the keystore are both out of git). You
-almost certainly don't have them, so when they're missing `scripts/build_apk.sh`
-opts into debug signing for you and says so loudly. That is fine for local
-builds and for reading the code on a device — but a debug-signed APK must never
-be distributed. Android's debug keystore is a publicly known fixed key, so
-anyone can forge an "update" for it, and Android refuses upgrades across signing
-keys, so shipping one is not a mistake you can quietly correct later.
-
 ## Documentation
 
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — layering, provider wiring, key design decisions
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — toolchain, build, test, PR process
-- [SECURITY.md](./SECURITY.md) — threat model and vulnerability reporting
-- [docs/protocols/](./docs/protocols/) — SSP v2 and AQT protocol notes
-- [CHANGELOG.md](./CHANGELOG.md)
+- [Set up the QUIC connection](./docs/user/quic-setup.md) ·
+  [Troubleshooting](./docs/user/quic-troubleshooting.md)
+- [Agent notifications for Claude Code / Codex](./docs/agent-notifications.md)
+- [Architecture](./docs/ARCHITECTURE.md) · [Protocols](./docs/protocols/) ·
+  [Changelog](./CHANGELOG.md)
+- [Contributing](./CONTRIBUTING.md) · [Security](./SECURITY.md)
 
-## Telemetry
-
-Source builds send **nothing**. Crash reporting requires a `SENTRY_DSN`
-compile-time variable that open-source builds never inject; with it absent the
-telemetry layer returns immediately at startup. Store builds do report crashes,
-with hostnames hashed and usernames reduced to a length token before anything
-leaves the device.
+Android is supported today; iOS is on the way.
 
 ## License
 
-[GPL-3.0-or-later](./LICENSE). Third-party attributions in [NOTICE](./NOTICE).
-
-Contributions require signing a [CLA](./CLA.md) — you keep your copyright; the
-grant exists so the same code can be distributed through app stores, which
-GPLv3 alone does not permit.
-
-## Trademark
+[GPL-3.0-or-later](./LICENSE); third-party attributions in [NOTICE](./NOTICE).
+Contributions require a [CLA](./CLA.md) — you keep your copyright; the grant
+lets the same code ship through app stores, which GPLv3 alone does not allow.
 
 The name "FlyTerm" and the app icon are not covered by the GPL. If you fork and
 redistribute, please use a different name and icon.

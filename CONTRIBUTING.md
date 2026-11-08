@@ -193,9 +193,12 @@ flutter build apk --release --split-per-abi \
   -PallowDebugSigning=true
 ```
 
-This is the same command CI runs. The resulting APK is debug-signed and **must
-not be distributed** — Android's debug keystore is a publicly known fixed key,
-so anyone can forge an "update" for it.
+This is the same command CI runs; `scripts/build_apk.sh` adds the flag for
+you when `android/key.properties` is missing, and says so. The resulting APK is
+debug-signed and **must not be distributed** — Android's debug keystore is a
+publicly known fixed key, so anyone can forge an "update" for it, and Android
+refuses upgrades across signing keys, so a shipped debug build can't be quietly
+replaced later.
 
 Build-shape constraints for anything that could be published: release only
 (never `--debug`), always `--split-per-abi` (no fat APK), `arm64` target.
