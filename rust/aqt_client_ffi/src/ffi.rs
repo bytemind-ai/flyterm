@@ -489,8 +489,10 @@ pub unsafe extern "C" fn aqt_connect(
                         Ok(conn) => {
                             // Store endpoint + connection. Endpoint must
                             // outlive any aqt_rebind() call (migration).
-                            *h.endpoint.write().await = Some(ep.clone());
+                            // routed first: aqt_rebind reads endpoint, then
+                            // routed, so seeing the endpoint implies routed.
                             *h.routed.lock().unwrap() = Some(routed);
+                            *h.endpoint.write().await = Some(ep.clone());
                             *h.conn.write().await = Some(conn.clone());
                             *h.conn_state.lock().await = ConnState::Connected;
 
@@ -1294,25 +1296,38 @@ pub unsafe extern "C" fn aqt_rebind(handle: *mut c_void) -> c_int {
             rt.spawn(async move {
                 let h = Arc::from_raw(handle_ptr as *const SessionHandle);
                 let ep_opt = h.endpoint.read().await.clone();
-                let routed_opt = h.routed.lock().unwrap().clone();
-                let (Some(ep), Some(old)) = (ep_opt, routed_opt) else {
-                    tracing::warn!("aqt_rebind: no endpoint stored — skipping");
-                    return;
-                };
-                // Fresh socket on the OS's current default route; the
-                // destination (route) is inherited unchanged.
-                let fresh = match old.with_fresh_socket() {
-                    Ok(r) => r,
-                    Err(e) => {
-                        tracing::warn!("aqt_rebind: fresh socket failed: {e}");
+                // Hold the `routed` lock across copy-route -> rebind -> store
+                // (all synchronous, no .await): a concurrent aqt_set_path
+                // then either lands before (copied into the fresh socket) or
+                // after (applied to the fresh socket), never lost.
+                let ok = {
+                    let mut guard = h.routed.lock().unwrap();
+                    let (Some(ep), Some(old)) = (ep_opt, guard.clone()) else {
+                        tracing::warn!("aqt_rebind: no endpoint stored — skipping");
                         return;
+                    };
+                    // Fresh socket on the OS's current default route; the
+                    // destination (route) is inherited unchanged.
+                    match old.with_fresh_socket() {
+                        Err(e) => {
+                            tracing::warn!("aqt_rebind: fresh socket failed: {e}");
+                            false
+                        }
+                        Ok(fresh) => match ep.rebind_abstract(fresh.clone()) {
+                            Err(e) => {
+                                tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
+                                false
+                            }
+                            Ok(()) => {
+                                *guard = Some(fresh);
+                                true
+                            }
+                        },
                     }
                 };
-                if let Err(e) = ep.rebind_abstract(fresh.clone()) {
-                    tracing::warn!("aqt_rebind: endpoint.rebind failed: {e}");
+                if !ok {
                     return;
                 }
-                *h.routed.lock().unwrap() = Some(fresh);
                 tracing::info!("aqt_rebind: endpoint rebound to fresh socket");
                 // Wake the new path: send a probe datagram so the server
                 // observes the new four-tuple and emits PATH_CHALLENGE.
@@ -1840,8 +1855,9 @@ async fn do_quic_resume(
     tracing::debug!("aqt_resume: 0-RTT accepted={}", zero_rtt_accepted);
 
     // Store endpoint + connection. Endpoint must outlive aqt_rebind().
-    *h.endpoint.write().await = Some(ep.clone());
+    // routed first (see aqt_connect): endpoint visible implies routed set.
     *h.routed.lock().unwrap() = Some(routed);
+    *h.endpoint.write().await = Some(ep.clone());
     *h.conn.write().await = Some(conn.clone());
     *h.conn_state.lock().await = ConnState::Connected;
 

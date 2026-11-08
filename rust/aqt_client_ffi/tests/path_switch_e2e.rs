@@ -8,6 +8,7 @@
 
 use std::ffi::{c_void, CString};
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -86,8 +87,14 @@ async fn start_daemon() -> anyhow::Result<Daemon> {
 }
 
 /// One "SSH channel": `relay::run` on one end, the phone-side pump on the
-/// other. Returns the pump's local UDP address for the client to dial.
-async fn relay_path(daemon_port: u16) -> anyhow::Result<SocketAddr> {
+/// other. Returns the pump's local UDP address for the client to dial, plus
+/// counters of datagrams forwarded (app->daemon, daemon->app).
+async fn relay_path(
+    daemon_port: u16,
+) -> anyhow::Result<(SocketAddr, Arc<AtomicU64>, Arc<AtomicU64>)> {
+    let a2d = Arc::new(AtomicU64::new(0));
+    let d2a = Arc::new(AtomicU64::new(0));
+    let (a2d_t, d2a_t) = (a2d.clone(), d2a.clone());
     let (server_end, phone_end) = tokio::io::duplex(256 * 1024);
     let (sr, sw) = tokio::io::split(server_end);
     tokio::spawn(flyterm_server::relay::run(daemon_port, sr, sw));
@@ -106,6 +113,7 @@ async fn relay_path(daemon_port: u16) -> anyhow::Result<SocketAddr> {
                     let Ok((n, from)) = r else { return };
                     app = Some(from);
                     if pw.write_all(&relay_frame(&pkt[..n])).await.is_err() { return; }
+                    a2d_t.fetch_add(1, Ordering::SeqCst);
                 }
                 r = pr.read(&mut chunk) => {
                     let n = match r { Ok(0) | Err(_) => return, Ok(n) => n };
@@ -113,13 +121,14 @@ async fn relay_path(daemon_port: u16) -> anyhow::Result<SocketAddr> {
                     if let Some(to) = app {
                         for p in packets {
                             let _ = sock.send_to(&p, to).await;
+                            d2a_t.fetch_add(1, Ordering::SeqCst);
                         }
                     }
                 }
             }
         }
     });
-    Ok(addr)
+    Ok((addr, a2d, d2a))
 }
 
 async fn hello(
@@ -205,7 +214,7 @@ async fn read_bulk(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
     let d = start_daemon().await?;
-    let pump = relay_path(d.port).await?;
+    let (pump, a2d, d2a) = relay_path(d.port).await?;
     let direct: SocketAddr = format!("127.0.0.1:{}", d.port).parse()?;
     let (ep, routed) = make_routed_endpoint(d.spki.clone(), direct)?;
     let conn = connect(&ep, routed.virtual_peer(), "aqt").await?;
@@ -218,18 +227,26 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
     const N: usize = 2000;
     let cmd = format!(
         "for i in $(seq -f '%04g' 1 {N}); do \
-           printf '%s|path-switch-payload-0123456789|%s|END\\n' \"$i\" \"$i\"; \
+           printf '%s|path-switch-payload-0123456789-abcdefghijklmnopqrstuvwxyz-0123456789|%s|END\\n' \"$i\" \"$i\"; \
          done; printf '@@DONE@@\\n'\n"
     );
     pty_tx.write_all(cmd.as_bytes()).await?;
 
+    // Stage 0 direct; stage 1 via the relay (kept until the relay has
+    // carried real traffic both ways); stage 2 direct again.
     let mut stage = 0;
+    let (mut a2d_0, mut d2a_0) = (0, 0);
+    let (mut a2d_1, mut d2a_1) = (0, 0);
     let text = read_bulk(&mut pty_rx, "@@DONE@@", 30, |lines| {
+        let (a, b) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
         if stage == 0 && lines >= 500 {
+            assert_eq!((a, b), (0, 0), "pump used before the switch");
             routed.set_target(pump);
+            (a2d_0, d2a_0) = (a, b);
             stage = 1;
-        } else if stage == 1 && lines >= 1200 {
+        } else if stage == 1 && lines >= 1200 && a - a2d_0 >= 5 && b - d2a_0 >= 20 {
             routed.set_target(direct);
+            (a2d_1, d2a_1) = (a, b);
             stage = 2;
         }
     })
@@ -242,12 +259,33 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
     );
     let mut pos = 0;
     for i in 1..=N {
-        let line = format!("{i:04}|path-switch-payload-0123456789|{i:04}|END");
+        let line = format!("{i:04}|path-switch-payload-0123456789-abcdefghijklmnopqrstuvwxyz-0123456789|{i:04}|END");
         let at = text[pos..]
             .find(&line)
             .unwrap_or_else(|| panic!("line {i} missing or out of order"));
         pos += at + line.len();
     }
+
+    // The relay really carried the middle stage, in both directions...
+    assert!(
+        a2d_1 - a2d_0 >= 5,
+        "app->daemon via relay: {}",
+        a2d_1 - a2d_0
+    );
+    assert!(
+        d2a_1 - d2a_0 >= 20,
+        "daemon->app via relay: {}",
+        d2a_1 - d2a_0
+    );
+    // ...and after switching back the pump goes quiet (direct resumed).
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let (a_end, b_end) = (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst));
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    assert_eq!(
+        (a_end, b_end),
+        (a2d.load(Ordering::SeqCst), d2a.load(Ordering::SeqCst)),
+        "pump still carrying traffic after switching back"
+    );
 
     // Same connection, never resumed; the session is still in the store.
     assert!(conn.close_reason().is_none(), "{:?}", conn.close_reason());
