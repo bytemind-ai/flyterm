@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-08
+
 ### Added
 - AQT (QUIC) listens on a fixed UDP port range instead of a random port, so it
   can be opened in a firewall / security group ahead of time: 61001-61999 by
