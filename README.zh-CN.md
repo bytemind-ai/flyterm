@@ -1,106 +1,129 @@
+<div align="center">
+
 # FlyTerm
 
-**Your coding agent doesn't stop when you close the laptop.**
 **合上电脑，活儿不该就停了。**
 
-[English](./README.md) · [中文]
+装在手机里、干活在你服务器上的 AI 编程助手——
+通过 SSH、Mosh，或者一条不会断的 QUIC 连接。
 
-FlyTerm 是一个装在手机里、干活在你服务器上的 coding agent。它通过 SSH、Mosh
-或自研的 QUIC 传输连接，跑的任务能熬过你锁屏，需要你拍板时会推一条通知给你。
+[![Release](https://img.shields.io/github/v/release/bytemind-ai/flyterm)](https://github.com/bytemind-ai/flyterm/releases/latest)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](./LICENSE)
+![Platform](https://img.shields.io/badge/platform-Android-3ddc84)
 
-> **截图 / 演示 GIF 放这里。** 拍 on-call 流程：锁屏通知
-> `agent wants to run systemctl restart nginx — approve?`，点进去看到命令和
-> 上下文，批准，agent 继续。这一个片段同时演示了远端任务、推送审批、多机、
-> 知识沉淀四件事。
+[**下载 APK**](https://github.com/bytemind-ai/flyterm/releases/latest) ·
+[快速上手](#快速上手) ·
+[English](./README.md)
 
-## 它为什么不是「带聊天框的终端」
+<img src="docs/images/hero.gif" alt="通知请求批准 systemctl restart nginx，点进去看到命令，批准后助手继续干活" width="320">
 
-三条是结构性的，不是外观差异 —— 桌面 agent 不是这么设计的，也没什么动机改：
+</div>
 
-**任务活在服务器上，不活在客户端。** `run_background` 把任务落到目标机的
-`~/.flyterm/jobs/`，之后用 `check_job`、`list_jobs` 回来查。锁屏、断网、app
-被系统杀掉，任务照跑。桌面 agent 的任务绑在启动它的那个终端进程上。
+---
 
-**审批走推送通知。** agent 需要你拍板时推一条通知给你，并且带前台抑制 ——
-你正看着那个会话时它不吵你。这是手机**优于**桌面的地方，不是妥协：桌面 agent
-得你盯着终端才能发现它在等你回答。
+## 它能帮你做什么
 
-**多机是一等公民。** `bash` 和 `read_file` 都带 `server` 参数，还有
-`copy_between_servers`、`list_servers`。一次会话能横跨你的整个机群。多数
-coding agent 的模型是单机、单工作目录。
+### 你走开了，任务还在跑
 
-由此延伸出两条：agent 能重新配置 app 自身（加服务器、开隧道、生成 SSH 密钥、
-切布局）；知识沉淀在 app 端而不是跟着目录走 —— 可复用的技能跨机器带着走，
-每台机器的事实留在那台机器名下。
+让助手去跑数据迁移、编译、一整套测试。任务跑在服务器上，不在 App 里：锁屏、
+断网、App 被系统杀掉，它都照跑。过一会儿回来，接着看进度和结果。
 
-## 其余能力
+<img src="docs/images/jobs.png" alt="助手的任务列表：编译还在跑，测试已跑完，点一下就能看输出" width="300">
 
-**会话熬得过地铁。** Mosh 式状态同步加 QUIC 传输，Wi-Fi 切 5G、过隧道，活儿
-不断。
+### 动手之前先问你，等你时会通知你
 
-**为小屏幕上的 agent 会话做过优化。** scrollback 本地渲染、零网络往返，所以
-往回翻看 agent 干了什么是瞬间的。检测到 TUI 应用会切换滚动策略。抑制闪烁。
-长按退格会重复。CJK 双宽字符正确渲染。这些是只有真在手机上跑过 agent 才会
-发现的问题。
+助手要执行需要你拍板的操作时，会推一条通知给你。点进去能看到具体命令和来龙
+去脉，批准或拒绝都在一个界面里。你不用一直盯着终端看它是不是在等你；而你正在
+看那个会话时，它也不会再弹通知打扰你。
 
-**可审计。** 这是个 SSH 客户端 —— 你把生产机器的凭据交给它。源码公开，协议
-实现可读。威胁模型见 [SECURITY.md](./SECURITY.md)，包括**哪些部分没有**经过
-审计。
+服务器上跑着 Claude Code 或 Codex？接上 `flyterm notify`，它们干完活或停下来
+等审批时也能推到你手机上——消息只在你的服务器和你的手机之间走，不经过任何
+第三方中转，也不需要注册账号（[怎么接](./docs/agent-notifications.md)）。
 
-**该有的终端功能一样不少**：SFTP、SSH 密钥管理（Ed25519 与 RSA 4096）、跳板机
-串联、端口转发、分屏与浮动窗口、完全可编程的屏幕键盘栏、tmux 集成、10 套配色。
+<img src="docs/images/approve.png" alt="审批界面：显示要执行的具体命令和前面的对话" width="300">
 
-## 安装
+### 一次对话，管你所有的服务器
 
-从 [Releases](https://github.com/bytemind-ai/flyterm/releases) 下载 APK，或自己
-构建（见下）。所有功能免费，没有任何内购。
+「对比一下 web-1 和 web-2 的 nginx 配置。」「把 CI 机上的构建产物拷到预发环境。」
+助手能在你添加过的所有服务器上执行命令、读文件、在机器之间搬文件，都在同一次
+对话里完成，不局限于你当前连着的那一台。
 
-## 构建
+<img src="docs/images/multi-host.png" alt="助手在一次回复里对比两台服务器的配置" width="300">
 
-需要 Flutter 3.47.2（Dart 3.13.2）、JDK 17、Rust 1.99 工具链。完整环境配置见
-[CONTRIBUTING.md](./CONTRIBUTING.md)。
+它还会记住学到的东西：通用的技能跟着你在各台服务器间通用，某台机器特有的情况
+记在那台机器名下。它甚至能帮你配置 FlyTerm 本身——加服务器、开隧道、生成
+SSH 密钥。
+
+## 底层是一个不会断的终端
+
+助手下面是一个完整的终端，专门为手机「网络说断就断」的现实设计。
+
+- **换网络，会话不断。** Wi-Fi 切 5G、进隧道又出来，FlyTerm 的 QUIC 连接会跟着
+  你走，而不是断开重连。
+- **UDP 被封也能用。** 酒店 Wi-Fi、公司 VPN、只开放 22 端口的服务器——遇到封
+  UDP 的网络，FlyTerm 会把同一条连接转到 SSH 通道里继续用；UDP 一恢复，又自动
+  切回来。不用改设置，也不用重连。
+- **也支持 Mosh**，网络慢时打字有本地回显，不卡顿。
+- **为小屏幕打磨过。** 滚动历史保存在本地，往回翻看助手做过什么是瞬间的。完全
+  可自定义的键盘快捷栏、分屏和悬浮窗、tmux 集成、中文等宽字符正确显示、10 套
+  配色主题。
+
+<img src="docs/images/terminal.png" alt="在 FlyTerm 里运行 tmux，键盘上方是自定义快捷栏" width="300">
+
+## 快速上手
+
+1. **安装**：从 [Releases](https://github.com/bytemind-ai/flyterm/releases/latest)
+   下载 APK（Android 7.0 及以上，arm64）。所有功能免费，没有订阅，也没有内购。
+2. **添加服务器**：用密码或 SSH 密钥。第一次用 QUIC 连接时，FlyTerm 会自动在
+   服务器上装好一个很小的服务端组件（[它会装什么](./docs/user/quic-setup.md)）。
+3. **接入你自己的模型**：填上 Anthropic、OpenAI、Gemini 或 OpenRouter 的 API
+   Key，也可以接本地的 Ollama。
+
+## 功能一览
+
+| | |
+|---|---|
+| **连接** | SSH · Mosh · QUIC（换网无感、UDP 被封自动走 SSH）· 跳板机 · 端口转发 |
+| **终端** | tmux 集成 · 分屏 · 悬浮窗 · 可自定义快捷栏 · 10 套主题 · 中文显示 |
+| **文件** | SFTP 文件浏览 · 在当前会话里直接上传下载 |
+| **助手** | 后台任务 · 通知审批 · 跨服务器操作 · 技能与每台机器的笔记 |
+| **密钥** | 生成 Ed25519 和 RSA 4096 密钥 · 密钥只存在手机上 |
+
+## 隐私与安全
+
+- **完全开源。** 你会把生产服务器的钥匙交给一个 SSH 客户端，它理应是你能读懂
+  的。协议实现的说明见 [docs/protocols/](./docs/protocols/)。
+- **凭据只存在你的手机上**，保存在系统的安全存储里。
+- **从源码构建的版本不上报任何数据。** 只有编译时注入了 `SENTRY_DSN` 才会有崩溃
+  上报，开源构建从不注入。应用商店版会上报崩溃，但主机名会先做哈希，用户名只
+  保留长度。
+- 威胁模型和漏洞报告方式见 [SECURITY.md](./SECURITY.md)。
+
+## 从源码构建
+
+需要 Flutter、Rust 工具链和 Android SDK，具体版本和每一步都在
+[CONTRIBUTING.md](./CONTRIBUTING.md) 里。装好后一条命令：
 
 ```bash
-flutter pub get
-flutter gen-l10n
-flutter test
 scripts/build_apk.sh
 ```
 
-产物：`build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
-
-如果 `PATH` 里没有符合版本要求的 `flutter`，显式指给脚本：
-`export FLYTERM_FLUTTER=/path/to/flutter/bin/flutter`。
-
-**签名。** 打 release APK 正常需要 `android/key.properties` 里的凭据（该文件和
-keystore 本体都不进 git）。你多半没有，所以缺凭据时 `scripts/build_apk.sh` 会
-替你开启 debug 签名，并大声提示。本地构建、在真机上读代码，这都没问题 ——
-但 **debug 签名的包绝不能分发**。Android 的 debug keystore 是公开已知的固定
-密钥，任何人都能伪造一个「更新」；而且 Android 不允许跨签名密钥升级，一旦发
-出去，这不是个之后能悄悄纠正的错误。
-
 ## 文档
 
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) —— 分层、provider 装配、关键设计决策
-- [CONTRIBUTING.md](./CONTRIBUTING.md) —— 工具链、构建、测试、PR 流程
-- [SECURITY.md](./SECURITY.md) —— 威胁模型与漏洞报告
-- [docs/protocols/](./docs/protocols/) —— SSP v2 与 AQT 协议说明
-- [CHANGELOG.md](./CHANGELOG.md)
+- [配置 QUIC 连接](./docs/user/quic-setup.md) ·
+  [常见问题排查](./docs/user/quic-troubleshooting.md)
+- [给 Claude Code / Codex 接任务通知](./docs/agent-notifications.md)
+- [架构说明](./docs/ARCHITECTURE.md) · [协议文档](./docs/protocols/) ·
+  [更新日志](./CHANGELOG.md)
+- [参与贡献](./CONTRIBUTING.md) · [安全](./SECURITY.md)
 
-## 遥测
-
-源码构建**什么都不发**。崩溃上报需要 `SENTRY_DSN` 编译时变量，而开源构建从不
-注入它 —— 变量为空时遥测层在启动时直接返回。商店版会上报崩溃，但主机名经过
-哈希、用户名被压成一个长度 token 之后才离开设备。
+目前支持 Android，iOS 版正在路上。
 
 ## 许可
 
-[GPL-3.0-or-later](./LICENSE)。第三方归属见 [NOTICE](./NOTICE)。
+[GPL-3.0-or-later](./LICENSE)，第三方组件声明见 [NOTICE](./NOTICE)。
+贡献代码需要签署 [CLA](./CLA.md)——版权仍归你所有；这份授权是为了让同一份代码
+能上架应用商店，单靠 GPLv3 做不到这一点。
 
-贡献需要签 [CLA](./CLA.md) —— 版权仍归你；这份授权的存在是为了同一份代码能
-通过应用商店分发，而单靠 GPLv3 做不到这件事。
-
-## 商标
-
-"FlyTerm" 这个名字和 app 图标不在 GPL 覆盖范围内。如果你 fork 后再分发，请换
+「FlyTerm」这个名字和应用图标不在 GPL 授权范围内。如果你 fork 后再分发，请换
 一个名字和图标。
