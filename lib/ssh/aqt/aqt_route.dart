@@ -18,26 +18,17 @@ class AqtRouteCache {
   static final AqtRouteCache instance = AqtRouteCache();
 
   final Map<String, AqtRoute> _routes = {};
-  final Set<String> _fallbackNotified = {};
 
   AqtRoute? get(String serverId) => _routes[serverId];
 
   void set(String serverId, AqtRoute route) => _routes[serverId] = route;
-
-  /// True the first time per server: the "UDP unavailable, using the SSH
-  /// channel" notice is shown once per run, not on every reconnect.
-  bool markFallbackNotified(String serverId) => _fallbackNotified.add(serverId);
 }
 
 class AqtRouteOutcome<T> {
   final T value;
   final AqtRoute route;
 
-  /// The SSH channel was used because the direct attempt failed (as opposed
-  /// to the user's "always use the SSH channel" or a cached decision).
-  final bool autoFellBack;
-
-  const AqtRouteOutcome(this.value, this.route, {this.autoFellBack = false});
+  const AqtRouteOutcome(this.value, this.route);
 }
 
 /// Both routes failed; carries both reasons.
@@ -50,29 +41,83 @@ class AqtRouteException implements Exception {
   String toString() => 'UDP: $direct | SSH relay: $viaSsh';
 }
 
-/// Picks the route: the SSH channel straight away when forced or already
-/// known for this server, otherwise [direct] first and [viaSsh] if it
-/// fails. [direct] carries its own timeout.
+/// Picks the route. [forceViaSsh] goes straight to [viaSsh]. Otherwise the
+/// two routes race: [direct] starts first and [viaSsh] starts once
+/// [relayHeadStart] passes without a direct success (or as soon as direct
+/// fails); with [cached] == viaSsh both start at once. The first success
+/// wins; a value that arrives from the other route afterwards goes to
+/// [discard]. Both failing throws [AqtRouteException]. Each route carries
+/// its own timeout.
 Future<AqtRouteOutcome<T>> connectWithRoute<T>({
   required bool forceViaSsh,
   required AqtRoute? cached,
   required Future<T> Function() direct,
   required Future<T> Function() viaSsh,
-}) async {
-  if (forceViaSsh || cached == AqtRoute.viaSsh) {
-    return AqtRouteOutcome(await viaSsh(), AqtRoute.viaSsh);
+  required Future<void> Function(T loser) discard,
+  Duration relayHeadStart = const Duration(milliseconds: 300),
+}) {
+  if (forceViaSsh) {
+    return viaSsh().then((v) => AqtRouteOutcome(v, AqtRoute.viaSsh));
   }
-  final Object directError;
+  final result = Completer<AqtRouteOutcome<T>>();
+  Object? directErr;
+  Object? relayErr;
+  var directFailed = false;
+  var relayFailed = false;
+  var relayStarted = false;
+  Timer? headStart;
+
+  void settle(T v, AqtRoute route) {
+    if (result.isCompleted) {
+      discard(v).catchError((Object _) {});
+    } else {
+      headStart?.cancel();
+      result.complete(AqtRouteOutcome(v, route));
+    }
+  }
+
+  void maybeFail() {
+    if (directFailed && relayFailed && !result.isCompleted) {
+      result.completeError(AqtRouteException(directErr!, relayErr!));
+    }
+  }
+
+  void startRelay() {
+    if (relayStarted) return;
+    relayStarted = true;
+    headStart?.cancel();
+    Future<T> f;
+    try {
+      f = viaSsh();
+    } catch (e) {
+      f = Future<T>.error(e);
+    }
+    f.then((v) => settle(v, AqtRoute.viaSsh), onError: (Object e) {
+      relayErr = e;
+      relayFailed = true;
+      maybeFail();
+    });
+  }
+
+  Future<T> d;
   try {
-    return AqtRouteOutcome(await direct(), AqtRoute.direct);
+    d = direct();
   } catch (e) {
-    directError = e;
+    d = Future<T>.error(e);
   }
-  try {
-    return AqtRouteOutcome(await viaSsh(), AqtRoute.viaSsh, autoFellBack: true);
-  } catch (e) {
-    throw AqtRouteException(directError, e);
+  d.then((v) => settle(v, AqtRoute.direct), onError: (Object e) {
+    directErr = e;
+    directFailed = true;
+    startRelay();
+    maybeFail();
+  });
+
+  if (cached == AqtRoute.viaSsh || relayHeadStart <= Duration.zero) {
+    startRelay();
+  } else {
+    headStart = Timer(relayHeadStart, startRelay);
   }
+  return result.future;
 }
 
 /// [future] with a [timeout]; if it still completes afterwards, [onLate]

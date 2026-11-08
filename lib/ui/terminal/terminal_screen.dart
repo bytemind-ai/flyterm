@@ -1109,9 +1109,6 @@ class _TerminalScreenState extends State<TerminalScreen>
               tab.transport = routed.value;
               tab.clearRemoteTuiHintForNewTransport();
               quicConnected = true;
-              if (mounted) {
-                AqtTransportFactory.notifyFallback(routed, server, context);
-              }
             } catch (e) {
               dlog('AQT', 'QUIC connect failed: $e');
               if (mounted) {

@@ -271,7 +271,6 @@ class AqtTransportFactory implements TransportFactory {
           //    sessions which never use the AI panel don't carry an idle SSH
           //    connection for their whole lifetime.
           if (clientOwned && routed!.route == AqtRoute.direct) client.close();
-          notifyFallback(routed!, server, dialogContext);
           transport!.lastConnectTimings = ConnectTimings(
             tcpMs: tcpMs,
             authMs: authMs,
@@ -960,9 +959,9 @@ class AqtTransportFactory implements TransportFactory {
       bytes.take(4).map((b) => b.toRadixString(16).padLeft(2, '0')).join('');
 
   /// QUIC to the daemon described by [info], picking the route (see
-  /// [AqtRoute]): direct UDP first (4 s), then QUIC over an SSH exec channel
-  /// on [client] — unless [server] is set to always use the SSH channel or
-  /// this run already found UDP blocked for it. The result is cached per
+  /// [AqtRoute]): direct UDP (4 s) raced against QUIC over an SSH exec
+  /// channel on [client] (started after a 300 ms head start; first success
+  /// wins) — unless [server] is set to always use the SSH channel. The result is cached per
   /// server for this run. With [ownsClient], a relayed transport takes
   /// [client] over and closes it with itself.
   static Future<AqtRouteOutcome<AqtTransport>> connectRouted({
@@ -977,6 +976,7 @@ class AqtTransportFactory implements TransportFactory {
     final routed = await connectWithRoute<AqtTransport>(
       forceViaSsh: server.aqtViaSsh,
       cached: AqtRouteCache.instance.get(server.id),
+      discard: (t) => t.close(),
       direct: () => closeIfLate(
         AqtTransport.connect(
             host: server.host, bootstrap: info, cols: cols, rows: rows),
@@ -1038,22 +1038,6 @@ class AqtTransportFactory implements TransportFactory {
       AqtRelayStartException(:final stderr) => l.aqtRelayStartFailed(stderr),
       _ => '$e',
     };
-  }
-
-  /// The one-time "UDP unavailable, using the SSH channel" notice after an
-  /// automatic fallback (once per server per run).
-  static void notifyFallback(
-    AqtRouteOutcome<AqtTransport> routed,
-    Server server,
-    BuildContext? context,
-  ) {
-    if (!routed.autoFellBack || context == null || !context.mounted) return;
-    if (!AqtRouteCache.instance.markFallbackNotified(server.id)) return;
-    final ports = AqtPortSpec.forServer(server.aqtPorts);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(context.l10n.aqtFellBackToSsh(ports.arg)),
-      duration: const Duration(seconds: 6),
-    ));
   }
 
   /// Bootstraps flyterm-server for [server]: daemon or once mode, on the

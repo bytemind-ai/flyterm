@@ -1690,7 +1690,6 @@
   "aqtPortRestartBodyUnknown": "服务端正在 UDP {current} 上运行，不在设置的 {ports} 范围内。重启后会改用新端口，但会中断这台服务器上所有 AQT 会话（包括其他设备上的）。",
   "aqtPortRestartConfirm": "重启",
   "aqtPortRestartKeep": "继续用当前端口",
-  "aqtFellBackToSsh": "UDP 不可用，已改为经由 SSH 通道连接。放行 UDP {ports} 可获得更低延迟。",
   "aqtViaSshLabel": "始终走 SSH 通道",
   "aqtViaSshDesc": "跳过 UDP 直连，适合只开放 22 端口的服务器或封了 UDP 的网络；延迟略高。",
   "aqtRouteViaSshTooltip": "QUIC · 经由 SSH 通道",
