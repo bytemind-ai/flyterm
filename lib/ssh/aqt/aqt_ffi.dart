@@ -121,6 +121,9 @@ typedef _ProbeDirectDart = int Function(
 late final _SetPathDart? _aqtSetPath;
 late final _ProbeDirectDart? _aqtProbeDirect;
 late final _VoidDart? _aqtProbeResult;
+typedef _PathRxNative = Int64 Function(Pointer<Void>);
+typedef _PathRxDart = int Function(Pointer<Void>);
+late final _PathRxDart? _aqtPathRxCurrent;
 
 typedef _GetU64Native = Uint64 Function(Pointer<Void>);
 typedef _GetU64Dart = int Function(Pointer<Void>);
@@ -291,6 +294,13 @@ void _initOptionalFfi() {
         .asFunction();
   } catch (_) {
     _aqtProbeResult = null;
+  }
+  try {
+    _aqtPathRxCurrent = _lib
+        .lookup<NativeFunction<_PathRxNative>>('aqt_path_rx_current')
+        .asFunction();
+  } catch (_) {
+    _aqtPathRxCurrent = null;
   }
   try {
     _aqtNotifyAck = _lib
@@ -572,6 +582,16 @@ class AqtFfi {
     _optionalFfiInited;
     final fn = _aqtProbeResult;
     if (fn == null) return 0;
+    return fn(handle);
+  }
+
+  /// 自上次 setPath 以来从当前目的地收到的数据报数；负数为没有路径或
+  /// 旧 .so 没有该符号。
+  static int pathRxCurrent(Pointer<Void> handle) {
+    // ignore: unnecessary_statements
+    _optionalFfiInited;
+    final fn = _aqtPathRxCurrent;
+    if (fn == null) return -1;
     return fn(handle);
   }
 

@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aqt_client_ffi::client::{connect, make_routed_endpoint};
-use aqt_client_ffi::ffi::{aqt_probe_direct, aqt_probe_result, aqt_set_path};
+use aqt_client_ffi::ffi::{aqt_path_rx_current, aqt_probe_direct, aqt_probe_result, aqt_set_path};
 use aqt_client_ffi::handle::SessionHandle;
 use aqt_protocol::{
     decode_frame_header, encode_frame, FramePayload, Hello, HelloAck, OpenTab, OpenTabAck,
@@ -247,7 +247,9 @@ async fn path_switch_mid_bulk_keeps_session() -> anyhow::Result<()> {
             (a2d_0, d2a_0) = (a, b);
             stage = 1;
         } else if stage == 1 && lines >= 1200 && a - a2d_0 >= 5 && b - d2a_0 >= 20 {
+            assert!(routed.rx_from_current() > 0, "relay traffic not counted");
             routed.set_target(direct);
+            assert_eq!(routed.rx_from_current(), 0, "switch resets the counter");
             (a2d_1, d2a_1) = (a, b);
             lines_2 = lines;
             stage = 2;
@@ -323,6 +325,17 @@ fn set_path_ffi_rejects_null_and_bad_ip() {
         assert!(aqt_set_path(raw, std::ptr::null(), 1) < 0);
         // Valid ip but no routed socket yet: NotConnected, also negative.
         assert!(aqt_set_path(raw, ip.as_ptr(), 1) < 0);
+        drop(Arc::from_raw(raw as *const SessionHandle));
+    }
+}
+
+#[test]
+fn path_rx_current_ffi_negative_without_path() {
+    unsafe {
+        assert!(aqt_path_rx_current(std::ptr::null_mut()) < 0);
+        let (handle, _tx) = SessionHandle::new();
+        let raw = Arc::into_raw(handle) as *mut c_void;
+        assert!(aqt_path_rx_current(raw) < 0, "no routed socket yet");
         drop(Arc::from_raw(raw as *const SessionHandle));
     }
 }
