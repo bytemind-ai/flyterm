@@ -25,3 +25,5 @@ _aqt_file_upload_start
 _aqt_get_path_stats
 _aqt_notify_ack
 _aqt_open_tab_v2
+_aqt_probe_direct
+_aqt_probe_result

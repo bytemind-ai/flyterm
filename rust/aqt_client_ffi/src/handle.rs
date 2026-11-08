@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, AtomicU64};
 use std::sync::Arc;
 use tokio::sync::{mpsc, Mutex, RwLock};
 
@@ -147,6 +147,9 @@ pub struct SessionHandle {
     /// so the Dart foreground watchdog can detect silent path death within
     /// ~7s instead of the 15-30s quinn keep_alive cycle.
     pub last_recv_at_ms: AtomicU64,
+    /// Outcome of the latest `aqt_probe_direct`: -1 in progress (or never
+    /// started), 0 unreachable/timed out, 1 reachable.
+    pub probe_result: AtomicI32,
 }
 
 impl SessionHandle {
@@ -175,6 +178,7 @@ impl SessionHandle {
                 rebinding_count: AtomicU32::new(0),
                 last_observed_addr: tokio::sync::Mutex::new(None),
                 last_recv_at_ms: AtomicU64::new(0),
+                probe_result: AtomicI32::new(-1),
             }),
             tx2,
         )

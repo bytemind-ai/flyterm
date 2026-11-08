@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aqt_client_ffi::client::{connect, make_routed_endpoint};
-use aqt_client_ffi::ffi::aqt_set_path;
+use aqt_client_ffi::ffi::{aqt_probe_direct, aqt_probe_result, aqt_set_path};
 use aqt_client_ffi::handle::SessionHandle;
 use aqt_protocol::{
     decode_frame_header, encode_frame, FramePayload, Hello, HelloAck, OpenTab, OpenTabAck,
@@ -325,4 +325,69 @@ fn set_path_ffi_rejects_null_and_bad_ip() {
         assert!(aqt_set_path(raw, ip.as_ptr(), 1) < 0);
         drop(Arc::from_raw(raw as *const SessionHandle));
     }
+}
+
+/// Poll `aqt_probe_result` until it leaves -1 or `within` elapses.
+async fn wait_probe(raw: *mut c_void, within: Duration) -> i32 {
+    let deadline = std::time::Instant::now() + within;
+    loop {
+        let r = unsafe { aqt_probe_result(raw) };
+        if r != -1 || std::time::Instant::now() >= deadline {
+            return r;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn probe_direct_reports_reachable_and_unreachable() -> anyhow::Result<()> {
+    let d = start_daemon().await?;
+    let (handle, _tx) = SessionHandle::new();
+    let raw = Arc::into_raw(handle) as *mut c_void;
+    let ip = CString::new("127.0.0.1")?;
+
+    // Live daemon: handshake succeeds well within 1 s.
+    let rc = unsafe {
+        aqt_probe_direct(
+            raw,
+            ip.as_ptr(),
+            d.port,
+            d.spki.as_ptr(),
+            d.spki.len(),
+            3000,
+        )
+    };
+    assert_eq!(rc, 0);
+    assert_eq!(wait_probe(raw, Duration::from_secs(1)).await, 1);
+
+    // Bound-but-silent UDP port: times out, reported as 0.
+    let silent = std::net::UdpSocket::bind("127.0.0.1:0")?;
+    let sport = silent.local_addr()?.port();
+    let rc =
+        unsafe { aqt_probe_direct(raw, ip.as_ptr(), sport, d.spki.as_ptr(), d.spki.len(), 500) };
+    assert_eq!(rc, 0);
+    assert_eq!(
+        unsafe { aqt_probe_result(raw) },
+        -1,
+        "result must reset to in-progress on start"
+    );
+    assert_eq!(wait_probe(raw, Duration::from_secs(1)).await, 0);
+
+    // Bad arguments are rejected synchronously.
+    unsafe {
+        assert!(aqt_probe_direct(raw, std::ptr::null(), 1, d.spki.as_ptr(), d.spki.len(), 1) < 0);
+        assert!(
+            aqt_probe_direct(
+                std::ptr::null_mut(),
+                ip.as_ptr(),
+                1,
+                d.spki.as_ptr(),
+                d.spki.len(),
+                1
+            ) < 0
+        );
+        assert!(aqt_probe_result(std::ptr::null_mut()) < -1);
+        drop(Arc::from_raw(raw as *const SessionHandle));
+    }
+    Ok(())
 }

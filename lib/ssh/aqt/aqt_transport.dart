@@ -330,7 +330,14 @@ class AqtTransport implements RemoteTransport {
     Uint8List? token,
     int? tabId,
     TransportState? state,
+    bool Function(String ip, int port)? setPathImpl,
+    int Function()? Function(String ip, int port, Uint8List spki, int timeoutMs)?
+        probeImpl,
+    int Function()? recvAgeImpl,
   }) : _handle = null {
+    this.setPathImpl = setPathImpl;
+    this.probeImpl = probeImpl;
+    _recvAgeImpl = recvAgeImpl;
     _lastPort = port;
     _lastSpki = spki;
     _sessionToken = token;
@@ -409,6 +416,18 @@ class AqtTransport implements RemoteTransport {
   String? get lastHost => _lastHost;
   int? get lastPort => _lastPort;
 
+  /// 测试注入：替代 [AqtFfi.setPath]（handle 为 null 的 testStub 用）。
+  @visibleForTesting
+  bool Function(String ip, int port)? setPathImpl;
+
+  /// 测试注入：替代 [AqtFfi.probeDirect] + [AqtFfi.probeResult]。启动探测，
+  /// 返回轮询函数（-1 进行中 / 0 不可达 / 1 可达）；启动失败返回 null。
+  @visibleForTesting
+  int Function()? Function(
+      String ip, int port, Uint8List spki, int timeoutMs)? probeImpl;
+
+  int Function()? _recvAgeImpl;
+
   AqtRoute _route = AqtRoute.direct;
   AqtSshRelay? _relay;
   SSHClient? _ownedSshClient;
@@ -434,6 +453,53 @@ class AqtTransport implements RemoteTransport {
     _ownedSshClient = ownedSshClient;
     if (daemonPort != null) _lastPort = daemonPort;
   }
+
+  /// 换入新的 relay / route，**返回旧 relay 且不关闭它**——由调用方决定
+  /// 何时关（切换成功后再关，失败则可回滚）。
+  AqtSshRelay? replaceRelay(AqtRoute route, AqtSshRelay? relay) {
+    final old = _relay;
+    _route = route;
+    _relay = relay;
+    return old;
+  }
+
+  /// 把 QUIC 连接的真实目的地切到 [ip]:[port]（连接/会话不变）。
+  bool setPath(String ip, int port) {
+    final inj = setPathImpl;
+    if (inj != null) return inj(ip, port);
+    final h = _live('setPath');
+    if (h == null) return false;
+    return AqtFfi.setPath(h, ip, port) == 0;
+  }
+
+  /// 探测 [ip]:[port] 的直连是否可达（独立 QUIC 握手，不影响当前会话）。
+  /// 每 100 ms 轮询一次结果；超时或没有 SPKI 时为 false。
+  Future<bool> probeDirect(String ip, int port,
+      {Duration timeout = const Duration(seconds: 3)}) async {
+    final spki = _lastSpki;
+    if (spki == null) return false;
+    final timeoutMs = timeout.inMilliseconds;
+    int Function()? poll;
+    final inj = probeImpl;
+    if (inj != null) {
+      poll = inj(ip, port, spki, timeoutMs);
+    } else {
+      final h = _live('probeDirect');
+      if (h != null && AqtFfi.probeDirect(h, ip, port, spki, timeoutMs) == 0) {
+        poll = () => AqtFfi.probeResult(h);
+      }
+    }
+    if (poll == null) return false;
+    // Rust 侧自己按 timeoutMs 收尾；这里多留 1 s 余量防它迟迟不写结果。
+    final deadline = DateTime.now().add(timeout + const Duration(seconds: 1));
+    while (true) {
+      final r = poll();
+      if (r != -1) return r == 1;
+      if (DateTime.now().isAfter(deadline)) return false;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+  }
+
   Uint8List? get lastSpki => _lastSpki;
   Uint8List? get sessionToken => _sessionToken;
   int? get lastTabId => _tabId;
@@ -558,6 +624,8 @@ class AqtTransport implements RemoteTransport {
   /// 与 [lastPathStats] 对称：都是给决策层读的只读事实。不暴露 `_handle`
   /// 本身 —— 裸指针漏出去就再也管不住谁在用它。
   int get lastRecvAgeMs {
+    final inj = _recvAgeImpl;
+    if (inj != null) return inj();
     final h = _live('lastRecvAgeMs');
     // close 之后按「从未收到」上报：这是决策层已经会处理的哨兵值，比返回
     // 一个看起来很新鲜的 0 安全 —— 后者会让状态机以为链路还活着。
