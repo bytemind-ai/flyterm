@@ -40,6 +40,6 @@ history          = ["dep:rusqlite"]
 persist-sessions = ["dep:rusqlite"]
 
 [dev-dependencies]
-tempfile = "=3.13.0"
+tempfile = "=3.27.0"
 anyhow = { workspace = true }
 rustls = { workspace = true }

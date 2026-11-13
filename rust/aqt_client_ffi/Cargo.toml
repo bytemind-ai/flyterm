@@ -29,7 +29,7 @@ tracing = { workspace = true }
 [dev-dependencies]
 # Only the client.rs unit tests generate certificates.
 rcgen = { workspace = true }
-tempfile = "=3.13.0"
+tempfile = "=3.27.0"
 # compression: the LZ4 write path is cfg-gated on this feature; without it
 # the server would confirm CAP_LZ4 yet send raw bytes.
 flyterm-server = { path = "../flyterm-server", features = ["compression"] }
