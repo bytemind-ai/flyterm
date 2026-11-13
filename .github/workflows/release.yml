@@ -37,9 +37,9 @@ jobs:
           sudo docker image prune --all --force > /dev/null || true
           df -h /
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -117,7 +117,7 @@ jobs:
       - name: Verify the APK bundles flyterm-server
         run: python3 scripts/verify_apk_server_assets.py build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: |
             build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
